@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.26)
 project(onnxruntime_static_lib)
 
 # set(onnxruntime_BUILD_SHARED_LIB ON)
-set(onnxruntime_BUILD_SHARED_LIB OFF)
-set(BUILD_SHARED_LIBS OFF)
+# set(onnxruntime_BUILD_SHARED_LIB OFF)
+# set(BUILD_SHARED_LIBS OFF)
 
 add_definitions(-D_SILENCE_ALL_CXX23_DEPRECATION_WARNINGS)
 
