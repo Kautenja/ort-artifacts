@@ -34,38 +34,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: linux-aarch64-dylib
-            args: "-A aarch64 --xnnpack -N --openvino"
-            runs-on: ubuntu-22.04
           - target: linux-aarch64-static
             args: "--static -A aarch64 --xnnpack -N --openvino"
-            runs-on: ubuntu-22.04
-          - target: linux-x86_64-dylib
-            args: "--xnnpack -N --openvino"
             runs-on: ubuntu-22.04
           - target: linux-x86_64-static
             args: "--static --xnnpack -N --openvino"
             runs-on: ubuntu-22.04
-          - target: macos-aarch64-dylib
-            args: "-A aarch64 --xnnpack --coreml -N"
-            runs-on: macos-14
           - target: macos-aarch64-static
             args: "--static -A aarch64 --xnnpack --coreml -N"
-            runs-on: macos-14
-          - target: macos-x86_64-dylib
-            args: "--xnnpack --coreml -N"
             runs-on: macos-14
           - target: macos-x86_64-static
             args: "--static --xnnpack --coreml -N"
             runs-on: macos-14
-          - target: windows-md-x86_64-dylib
-            args: "--directml --xnnpack --openvino -N"
-            runs-on: windows-2025
           - target: windows-md-x86_64-static
             args: "--static --directml --xnnpack --openvino -N"
-            runs-on: windows-2025
-          - target: windows-mt-x86_64-dylib
-            args: "--mt --directml --xnnpack --openvino -N"
             runs-on: windows-2025
           - target: windows-mt-x86_64-static
             args: "--static --mt --directml --xnnpack --openvino -N"
@@ -73,21 +55,15 @@ jobs:
           - target: emscripten-wasm32
             args: "-W --webgpu"
             runs-on: ubuntu-22.04
-          - target: ios-aarch64-dylib
-            args: "-A aarch64 --iphoneos --xnnpack --coreml -N"
-            runs-on: macos-14
           - target: ios-aarch64-static
             args: "--static --iphoneos -A aarch64 --xnnpack --coreml -N"
-            runs-on: macos-14
-          - target: ios-simulator-aarch64-dylib
-            args: "-A aarch64 --iphonesimulator --xnnpack --coreml -N"
             runs-on: macos-14
           - target: ios-simulator-aarch64-static
             args: "--static --iphonesimulator -A aarch64 --xnnpack --coreml -N"
             runs-on: macos-14
-          - target: android-aarch64-dylib
-            args: "--android -A aarch64 --xnnpack --nnapi -N"
-            runs-on: ubuntu-22.04
+          - target: ios-simulator-x86_64-static
+            args: "--static --iphonesimulator -A x86_64 --xnnpack --coreml -N"
+            runs-on: macos-14
           - target: android-aarch64-static
             args: "--static --android -A aarch64 --xnnpack --nnapi -N"
             runs-on: ubuntu-22.04
