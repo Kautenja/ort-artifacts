@@ -31,7 +31,7 @@ on:
       buildtype:
         type: choice
         required: true
-        default: 'Both'
+        default: 'Release'
         options:
           - 'Both'
           - 'Release'
