@@ -10,7 +10,7 @@ on:
         type: choice
         description: "Select a predefined target"
         required: false
-        default: "windows-mt-x86_64-static"
+        default: "all"
         options:
           - "all"
           # - linux-aarch64-dylib
