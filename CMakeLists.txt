@@ -39,7 +39,7 @@ option(FORCE_UPDATE "Force update of ONNX Runtime repository (re-clone)" OFF)
 
 # Constants from build.ts
 set(MACOS_DEPLOYMENT_TARGET "13.3")
-set(IPHONE_DEPLOYMENT_TARGET "16.0")
+set(IPHONE_DEPLOYMENT_TARGET "15.0")
 
 # Platform detection
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
