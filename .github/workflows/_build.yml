@@ -25,6 +25,31 @@ on:
         description: "Enable ONNX Runtime reduced operator type support"
         required: false
         default: false
+      enable-xnnpack:
+        type: boolean
+        description: "Enable XNNPACK for compatible targets only"
+        required: false
+        default: true
+      enable-openvino:
+        type: boolean
+        description: "Enable OpenVINO for compatible targets only"
+        required: false
+        default: true
+      enable-directml:
+        type: boolean
+        description: "Enable DirectML for compatible targets only"
+        required: false
+        default: true
+      enable-coreml:
+        type: boolean
+        description: "Enable CoreML for compatible targets only"
+        required: false
+        default: true
+      enable-nnapi:
+        type: boolean
+        description: "Enable NNAPI for compatible targets only"
+        required: false
+        default: true
 
 env:
   GCC_VERSION: '11'
@@ -45,72 +70,118 @@ jobs:
         shell: bash
         env:
           SELECTED_TARGETS: ${{ inputs.targets }}
+          ENABLE_XNNPACK: ${{ inputs.enable-xnnpack }}
+          ENABLE_OPENVINO: ${{ inputs.enable-openvino }}
+          ENABLE_DIRECTML: ${{ inputs.enable-directml }}
+          ENABLE_COREML: ${{ inputs.enable-coreml }}
+          ENABLE_NNAPI: ${{ inputs.enable-nnapi }}
         run: |
           python3 <<'PY'
           import json
           import os
+          import shlex
           import sys
+
+          def enabled_input(name, default="true"):
+              raw = os.environ.get(name, default).strip().lower()
+              if not raw:
+                  raw = default
+              return raw == "true"
+
+          provider_inputs = {
+              "xnnpack": enabled_input("ENABLE_XNNPACK"),
+              "openvino": enabled_input("ENABLE_OPENVINO"),
+              "directml": enabled_input("ENABLE_DIRECTML"),
+              "coreml": enabled_input("ENABLE_COREML"),
+              "nnapi": enabled_input("ENABLE_NNAPI"),
+          }
+          provider_flags = {
+              "xnnpack": "--xnnpack",
+              "openvino": "--openvino",
+              "directml": "--directml",
+              "coreml": "--coreml",
+              "nnapi": "--nnapi",
+          }
+          provider_labels = {
+              "xnnpack": "XNNPACK",
+              "openvino": "OpenVINO",
+              "directml": "DirectML",
+              "coreml": "CoreML",
+              "nnapi": "NNAPI",
+          }
 
           all_targets = [
               {
                   "target": "linux-aarch64-static",
                   "args": "--static -A aarch64 --xnnpack -N --openvino",
                   "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "openvino"],
               },
               {
                   "target": "linux-x86_64-static",
                   "args": "--static --xnnpack -N --openvino",
                   "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "openvino"],
               },
               {
                   "target": "macos-aarch64-static",
                   "args": "--static -A aarch64 --xnnpack --coreml -N",
                   "runs-on": "macos-14",
+                  "providers": ["xnnpack", "coreml"],
               },
               {
                   "target": "macos-x86_64-static",
                   "args": "--static --xnnpack --coreml -N",
                   "runs-on": "macos-14",
+                  "providers": ["xnnpack", "coreml"],
               },
               {
                   "target": "windows-md-x86_64-static",
                   "args": "--static --directml --xnnpack -N",
                   "runs-on": "windows-2022",
+                  "providers": ["directml", "xnnpack"],
               },
               {
                   "target": "ios-aarch64-static",
                   "args": "--static --iphoneos -A aarch64 --xnnpack --coreml -N",
                   "runs-on": "macos-14",
+                  "providers": ["xnnpack", "coreml"],
               },
               {
                   "target": "ios-simulator-aarch64-static",
                   "args": "--static --iphonesimulator -A aarch64 --xnnpack --coreml -N",
                   "runs-on": "macos-14",
+                  "providers": ["xnnpack", "coreml"],
               },
               {
                   "target": "ios-simulator-x86_64-static",
                   "args": "--static --iphonesimulator -A x86_64 --xnnpack --coreml -N",
                   "runs-on": "macos-14",
+                  "providers": ["xnnpack", "coreml"],
               },
               {
                   "target": "android-arm64-v8a-static",
                   "args": "--static --android --android_abi arm64-v8a --xnnpack --nnapi -N",
                   "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "nnapi"],
               },
               {
                   "target": "android-armeabi-v7a-static",
                   "args": "--static --android --android_abi armeabi-v7a --xnnpack --nnapi -N",
                   "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "nnapi"],
               },
               {
                   "target": "android-x86_64-static",
                   "args": "--static --android --android_abi x86_64 --xnnpack --nnapi -N",
                   "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "nnapi"],
               },
               {
                   "target": "android-x86-static",
                   "args": "--static --android --android_abi x86 --xnnpack --nnapi -N",
                   "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "nnapi"],
               },
           ]
 
@@ -125,9 +196,9 @@ jobs:
               fail("No build targets selected. Check target-all or select at least one target checkbox.")
 
           if raw_targets == "all":
-              selected = all_targets
+              selected_templates = all_targets
           else:
-              selected = []
+              selected_templates = []
               seen = set()
               for name in raw_targets.split(","):
                   if not name:
@@ -135,14 +206,50 @@ jobs:
                   if name not in by_name:
                       fail(f"Unknown build target '{name}'. Select one of: {', '.join(by_name)}.")
                   if name not in seen:
-                      selected.append(by_name[name])
+                      selected_templates.append(by_name[name])
                       seen.add(name)
 
-          if not selected:
+          if not selected_templates:
               fail("No build targets selected. Check target-all or select at least one target checkbox.")
+
+          selected_provider_support = {
+              provider
+              for target in selected_templates
+              for provider in target["providers"]
+          }
+          for provider, enabled in provider_inputs.items():
+              if enabled and provider not in selected_provider_support:
+                  print(
+                      "::notice::"
+                      f"enable-{provider} is true, but no selected target supports "
+                      f"{provider_labels[provider]}; no {provider_flags[provider]} flag will be added."
+                  )
+
+          selected = []
+          for target in selected_templates:
+              resolved = target.copy()
+              disabled_provider_flags = {
+                  provider_flags[provider]
+                  for provider in target["providers"]
+                  if not provider_inputs[provider]
+              }
+              args = [
+                  token
+                  for token in shlex.split(target["args"])
+                  if token not in disabled_provider_flags
+              ]
+              resolved["args"] = " ".join(args)
+              resolved["enabled-providers"] = [
+                  provider
+                  for provider in target["providers"]
+                  if provider_inputs[provider]
+              ]
+              selected.append(resolved)
 
           target_names = ",".join(target["target"] for target in selected)
           print(f"Selected {len(selected)} target(s): {target_names}")
+          for target in selected:
+              print(f"{target['target']} build args: {target['args']}")
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write("matrix<<JSON\n")

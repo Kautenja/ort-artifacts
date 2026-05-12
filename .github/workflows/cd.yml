@@ -89,6 +89,31 @@ on:
         description: "Enable ONNX Runtime reduced operator type support. Requires required-operators-config-base64."
         required: false
         default: false
+      enable-xnnpack:
+        type: boolean
+        description: "Enable XNNPACK for compatible targets only."
+        required: false
+        default: true
+      enable-openvino:
+        type: boolean
+        description: "Enable OpenVINO for compatible targets only."
+        required: false
+        default: true
+      enable-directml:
+        type: boolean
+        description: "Enable DirectML for compatible targets only."
+        required: false
+        default: true
+      enable-coreml:
+        type: boolean
+        description: "Enable CoreML for compatible targets only."
+        required: false
+        default: true
+      enable-nnapi:
+        type: boolean
+        description: "Enable NNAPI for compatible targets only."
+        required: false
+        default: true
       publish:
         type: boolean
         description: "Publish as draft release on GitHub."
@@ -158,6 +183,11 @@ jobs:
       targets: ${{ needs.select-targets.outputs.targets }}
       required-operators-config-base64: ${{ inputs.required-operators-config-base64 }}
       enable-reduced-operator-type-support: ${{ inputs.enable-reduced-operator-type-support }}
+      enable-xnnpack: ${{ inputs.enable-xnnpack }}
+      enable-openvino: ${{ inputs.enable-openvino }}
+      enable-directml: ${{ inputs.enable-directml }}
+      enable-coreml: ${{ inputs.enable-coreml }}
+      enable-nnapi: ${{ inputs.enable-nnapi }}
 
   build-release:
     if: inputs.buildtype == 'Both' || inputs.buildtype == 'Release'
@@ -169,6 +199,11 @@ jobs:
       targets: ${{ needs.select-targets.outputs.targets }}
       required-operators-config-base64: ${{ inputs.required-operators-config-base64 }}
       enable-reduced-operator-type-support: ${{ inputs.enable-reduced-operator-type-support }}
+      enable-xnnpack: ${{ inputs.enable-xnnpack }}
+      enable-openvino: ${{ inputs.enable-openvino }}
+      enable-directml: ${{ inputs.enable-directml }}
+      enable-coreml: ${{ inputs.enable-coreml }}
+      enable-nnapi: ${{ inputs.enable-nnapi }}
 
   publish:
     if: inputs.publish && always() && !cancelled() && !contains(needs.*.result, 'failure')

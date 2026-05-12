@@ -3,3 +3,4 @@
 2026-05-12: Completed Android native static artifact workflows for arm64-v8a, armeabi-v7a, x86_64, and x86, including CD presets, SDK/NDK setup, ABI validation, manifest verification, and JNI integration notes.
 2026-05-12: Completed required-operators config workflow input support, including base64 decode and validation, ORT reduced-kernel generation, reduced artifact hash markers, manifest metadata, and README usage notes.
 2026-05-12: Completed checkbox target workflow dispatch, replacing preset/custom target inputs with exact target checkboxes, dynamic matrix selection, empty-selection validation, and preserved artifact naming.
+2026-05-12: Completed execution-provider workflow checkboxes for XNNPACK, OpenVINO, DirectML, CoreML, and NNAPI, with target-compatible argument filtering and provider setup gating.
