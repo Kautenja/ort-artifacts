@@ -3,6 +3,7 @@
 
 import hashlib
 import json
+import plistlib
 import re
 import zipfile
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Dict, List, Optional, Set
 LIBRARY_DIRECTORIES = ["onnxruntime/bin", "onnxruntime/lib"]
 REDUCED_OPS_METADATA_FILE = "onnxruntime/reduced_operators.json"
 OPS_MARKER_RE = re.compile(r"(?:^|-)ops-([0-9a-f]{12})(?:-|$)", re.IGNORECASE)
+XCFRAMEWORK_INFO_PLIST_SUFFIX = ".xcframework/Info.plist"
 
 ONNXRUNTIME_LIBRARY_NAMES = {
     "onnxruntime_sx.dll",
@@ -130,6 +132,61 @@ def get_reduced_ops_metadata(archive_path: Path, files: List[str]) -> Dict:
     return {"reduced_ops": False}
 
 
+def find_xcframework_info_plist(files: List[str]) -> Optional[str]:
+    matches = [f for f in files if f.endswith(XCFRAMEWORK_INFO_PLIST_SUFFIX)]
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+def process_xcframework_artifact(archive_path: Path, files: List[str], sha256: str) -> Optional[Dict]:
+    """Process an Apple XCFramework archive and extract metadata."""
+    info_plist = find_xcframework_info_plist(files)
+    if not info_plist:
+        return None
+
+    xcframework_root = info_plist.removesuffix("/Info.plist")
+    try:
+        with zipfile.ZipFile(archive_path, "r") as zf:
+            info = plistlib.loads(zf.read(info_plist))
+    except (KeyError, OSError, plistlib.InvalidFileException, zipfile.BadZipFile) as e:
+        print(f"Warning: Could not read XCFramework metadata from {archive_path}: {e}")
+        return None
+
+    libraries = []
+    for entry in info.get("AvailableLibraries", []):
+        identifier = entry.get("LibraryIdentifier")
+        library_path = entry.get("LibraryPath")
+        if not identifier or not library_path:
+            continue
+        headers_path = entry.get("HeadersPath")
+        library_metadata = {
+            "identifier": identifier,
+            "platform": entry.get("SupportedPlatform"),
+            "variant": entry.get("SupportedPlatformVariant"),
+            "architectures": entry.get("SupportedArchitectures", []),
+            "library": f"{xcframework_root}/{identifier}/{library_path}",
+        }
+        if headers_path:
+            library_metadata["headers"] = f"{xcframework_root}/{identifier}/{headers_path}"
+        libraries.append(library_metadata)
+
+    if not libraries:
+        print(f"Warning: No XCFramework libraries found in {archive_path}")
+        return None
+
+    metadata = {
+        "artifact": archive_path.stem,
+        "archive": f"{archive_path.stem}.zip",
+        "sha256": sha256,
+        "artifact_type": "apple-xcframework",
+        "xcframework": xcframework_root,
+        "libraries": libraries,
+    }
+    metadata.update(get_reduced_ops_metadata(archive_path, files))
+    return metadata
+
+
 def process_artifact(archive_path: Path) -> Optional[Dict]:
     """Process a single artifact archive and extract metadata."""
     sha256 = calculate_sha256(archive_path)
@@ -139,6 +196,10 @@ def process_artifact(archive_path: Path) -> Optional[Dict]:
     except (zipfile.BadZipFile, OSError) as e:
         print(f"Error reading archive {archive_path}: {e}")
         return None
+
+    xcframework_metadata = process_xcframework_artifact(archive_path, files, sha256)
+    if xcframework_metadata:
+        return xcframework_metadata
 
     lib_dirs = find_lib_directories(files)
     if not lib_dirs:

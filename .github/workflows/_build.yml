@@ -66,6 +66,8 @@ jobs:
       targets: ${{ steps.targets.outputs.targets }}
       universal-matrix: ${{ steps.targets.outputs.universal_matrix }}
       universal-targets: ${{ steps.targets.outputs.universal_targets }}
+      xcframework-matrix: ${{ steps.targets.outputs.xcframework_matrix }}
+      xcframework-targets: ${{ steps.targets.outputs.xcframework_targets }}
     steps:
       - uses: actions/checkout@v4
 
@@ -484,4 +486,133 @@ jobs:
         with:
           name: ${{ steps.artifact-names.outputs.universal }}
           path: '${{ steps.artifact-names.outputs.universal }}.zip'
+          if-no-files-found: error
+
+  package-apple-xcframework:
+    name: Package ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ inputs.buildtype }}
+    if: needs.validate-targets.outputs['xcframework-targets'] != ''
+    needs: [validate-targets, build, package-universal-apple]
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.validate-targets.outputs['xcframework-matrix']) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate reduced operator input combination
+        if: >
+          inputs.enable-reduced-operator-type-support &&
+          inputs.required-operators-config-base64 == ''
+        shell: bash
+        run: |
+          echo "enable-reduced-operator-type-support requires required-operators-config-base64." >&2
+          exit 1
+
+      - name: Decode and validate required operators config for artifact names
+        id: required-ops
+        if: inputs.required-operators-config-base64 != ''
+        env:
+          REQUIRED_OPERATORS_CONFIG_BASE64: ${{ inputs.required-operators-config-base64 }}
+        shell: bash
+        run: |
+          CONFIG_PATH="$RUNNER_TEMP/required_operators.config"
+          VALIDATION_ARGS=()
+          if [[ "${{ inputs.enable-reduced-operator-type-support }}" == "true" ]]; then
+            VALIDATION_ARGS+=(--enable-reduced-operator-type-support)
+          fi
+
+          python3 .github/scripts/validate_required_operators_config.py \
+            --base64-env REQUIRED_OPERATORS_CONFIG_BASE64 \
+            --output "$CONFIG_PATH" \
+            --github-output "$GITHUB_OUTPUT" \
+            "${VALIDATION_ARGS[@]}"
+
+      - name: Lowercase buildtype
+        id: lower-buildtype
+        shell: bash
+        run: |
+          LOWER=$(echo "${{ inputs.buildtype }}" | tr '[:upper:]' '[:lower:]')
+          echo "string=${LOWER}" >> "$GITHUB_OUTPUT"
+
+      - name: Artifact names
+        id: artifact-names
+        shell: bash
+        env:
+          REQUIRED_OPERATORS_CONFIG_SHA_SHORT: ${{ steps.required-ops.outputs.sha256_short }}
+        run: |
+          artifact_name() {
+            local target="$1"
+            if [[ -n "${REQUIRED_OPERATORS_CONFIG_SHA_SHORT:-}" ]]; then
+              echo "ort-${{ inputs.onnxruntime-ref }}-${target}-ops-${REQUIRED_OPERATORS_CONFIG_SHA_SHORT}-${{ steps.lower-buildtype.outputs.string }}"
+            else
+              echo "ort-${{ inputs.onnxruntime-ref }}-${target}-${{ steps.lower-buildtype.outputs.string }}"
+            fi
+          }
+
+          IOS_DEVICE_ARTIFACT=$(artifact_name "${{ matrix.ios_device_target }}")
+          IOS_SIMULATOR_ARTIFACT=$(artifact_name "${{ matrix.ios_simulator_universal_target }}")
+          MACOS_ARTIFACT=$(artifact_name "${{ matrix.macos_universal_target }}")
+          XCFRAMEWORK_ARTIFACT=$(artifact_name "${{ matrix.target }}")
+
+          echo "ios_device=${IOS_DEVICE_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          echo "ios_simulator=${IOS_SIMULATOR_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          echo "macos=${MACOS_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          echo "xcframework=${XCFRAMEWORK_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          echo "XCFramework source artifacts: ${IOS_DEVICE_ARTIFACT}, ${IOS_SIMULATOR_ARTIFACT}, ${MACOS_ARTIFACT}"
+          echo "XCFramework output artifact: ${XCFRAMEWORK_ARTIFACT}"
+
+      - name: Download iOS device source artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ steps.artifact-names.outputs.ios_device }}
+          path: xcframework-sources/ios-device
+
+      - name: Download iOS simulator universal source artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ steps.artifact-names.outputs.ios_simulator }}
+          path: xcframework-sources/ios-simulator
+
+      - name: Download macOS universal source artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ steps.artifact-names.outputs.macos }}
+          path: xcframework-sources/macos
+
+      - name: Create Apple XCFramework artifact
+        shell: bash
+        run: |
+          IOS_DEVICE_ARCHIVE="xcframework-sources/ios-device/${{ steps.artifact-names.outputs.ios_device }}.zip"
+          IOS_SIMULATOR_ARCHIVE="xcframework-sources/ios-simulator/${{ steps.artifact-names.outputs.ios_simulator }}.zip"
+          MACOS_ARCHIVE="xcframework-sources/macos/${{ steps.artifact-names.outputs.macos }}.zip"
+
+          if [[ ! -f "$IOS_DEVICE_ARCHIVE" ]]; then
+            echo "::error::Required iOS device source artifact archive was not downloaded: $IOS_DEVICE_ARCHIVE"
+            exit 1
+          fi
+          if [[ ! -f "$IOS_SIMULATOR_ARCHIVE" ]]; then
+            echo "::error::Required iOS simulator universal source artifact archive was not downloaded: $IOS_SIMULATOR_ARCHIVE"
+            exit 1
+          fi
+          if [[ ! -f "$MACOS_ARCHIVE" ]]; then
+            echo "::error::Required macOS universal source artifact archive was not downloaded: $MACOS_ARCHIVE"
+            exit 1
+          fi
+
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-path
+          xcrun --sdk iphonesimulator --show-sdk-path
+
+          python3 .github/scripts/create_apple_xcframework_artifact.py \
+            --ios-device-archive "$IOS_DEVICE_ARCHIVE" \
+            --ios-simulator-archive "$IOS_SIMULATOR_ARCHIVE" \
+            --macos-archive "$MACOS_ARCHIVE" \
+            --output-archive "${{ steps.artifact-names.outputs.xcframework }}.zip"
+
+      - name: Upload Apple XCFramework artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact-names.outputs.xcframework }}
+          path: '${{ steps.artifact-names.outputs.xcframework }}.zip'
           if-no-files-found: error

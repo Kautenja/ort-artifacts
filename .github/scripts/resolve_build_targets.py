@@ -68,9 +68,30 @@ class UniversalTarget:
 
 
 @dataclass(frozen=True)
+class XCFrameworkTarget:
+    target: str
+    ios_device_target: str
+    ios_simulator_universal_target: str
+    macos_universal_target: str
+
+    @property
+    def universal_targets(self) -> Sequence[str]:
+        return (self.ios_simulator_universal_target, self.macos_universal_target)
+
+    def matrix_entry(self) -> Dict[str, str]:
+        return {
+            "target": self.target,
+            "ios_device_target": self.ios_device_target,
+            "ios_simulator_universal_target": self.ios_simulator_universal_target,
+            "macos_universal_target": self.macos_universal_target,
+        }
+
+
+@dataclass(frozen=True)
 class Resolution:
     build_targets: List[Dict[str, object]]
     universal_targets: List[Dict[str, str]]
+    xcframework_targets: List[Dict[str, str]]
     notices: List[str]
 
     @property
@@ -81,6 +102,10 @@ class Resolution:
     def universal_target_names(self) -> List[str]:
         return [target["target"] for target in self.universal_targets]
 
+    @property
+    def xcframework_target_names(self) -> List[str]:
+        return [target["target"] for target in self.xcframework_targets]
+
     def output_values(self) -> Dict[str, str]:
         return {
             "matrix": json.dumps({"include": self.build_targets}, separators=(",", ":")),
@@ -90,6 +115,11 @@ class Resolution:
                 separators=(",", ":"),
             ),
             "universal_targets": ",".join(self.universal_target_names),
+            "xcframework_matrix": json.dumps(
+                {"include": self.xcframework_targets},
+                separators=(",", ":"),
+            ),
+            "xcframework_targets": ",".join(self.xcframework_target_names),
         }
 
 
@@ -205,9 +235,22 @@ UNIVERSAL_TARGETS = [
     ),
 ]
 
+XCFRAMEWORK_TARGETS = [
+    XCFrameworkTarget(
+        target="apple-xcframework",
+        ios_device_target="ios-aarch64-static",
+        ios_simulator_universal_target="ios-simulator-universal-static",
+        macos_universal_target="macos-universal-static",
+    ),
+]
+
 BUILD_TARGETS_BY_NAME = {target.target: target for target in BUILD_TARGETS}
 UNIVERSAL_TARGETS_BY_NAME = {target.target: target for target in UNIVERSAL_TARGETS}
-ALL_TARGET_NAMES = [target.target for target in BUILD_TARGETS + UNIVERSAL_TARGETS]
+XCFRAMEWORK_TARGETS_BY_NAME = {target.target: target for target in XCFRAMEWORK_TARGETS}
+ALL_TARGET_NAMES = [
+    target.target
+    for target in BUILD_TARGETS + UNIVERSAL_TARGETS + XCFRAMEWORK_TARGETS
+]
 
 
 def parse_enabled_input(raw: str | None, default: bool = True) -> bool:
@@ -234,7 +277,7 @@ def append_unique(values: List[str], new_values: Iterable[str]) -> None:
             seen.add(value)
 
 
-def parse_requested_targets(raw_targets: str) -> tuple[List[str], List[str]]:
+def parse_requested_targets(raw_targets: str) -> tuple[List[str], List[str], List[str]]:
     compact_targets = "".join(raw_targets.split())
 
     if not compact_targets:
@@ -246,10 +289,12 @@ def parse_requested_targets(raw_targets: str) -> tuple[List[str], List[str]]:
         return (
             [target.target for target in BUILD_TARGETS],
             [target.target for target in UNIVERSAL_TARGETS],
+            [target.target for target in XCFRAMEWORK_TARGETS],
         )
 
     build_targets: List[str] = []
     universal_targets: List[str] = []
+    xcframework_targets: List[str] = []
 
     for name in compact_targets.split(","):
         if not name:
@@ -258,17 +303,19 @@ def parse_requested_targets(raw_targets: str) -> tuple[List[str], List[str]]:
             append_unique(build_targets, [name])
         elif name in UNIVERSAL_TARGETS_BY_NAME:
             append_unique(universal_targets, [name])
+        elif name in XCFRAMEWORK_TARGETS_BY_NAME:
+            append_unique(xcframework_targets, [name])
         else:
             raise TargetResolutionError(
                 f"Unknown build target '{name}'. Select one of: {', '.join(ALL_TARGET_NAMES)}."
             )
 
-    if not build_targets and not universal_targets:
+    if not build_targets and not universal_targets and not xcframework_targets:
         raise TargetResolutionError(
             "No build targets selected. Check target-all or select at least one target checkbox."
         )
 
-    return build_targets, universal_targets
+    return build_targets, universal_targets, xcframework_targets
 
 
 def resolve_targets(
@@ -277,7 +324,14 @@ def resolve_targets(
     include_universal_prerequisites: bool = True,
 ) -> Resolution:
     provider_inputs = provider_inputs or DEFAULT_PROVIDER_INPUTS
-    selected_build_names, selected_universal_names = parse_requested_targets(raw_targets)
+    selected_build_names, selected_universal_names, selected_xcframework_names = parse_requested_targets(
+        raw_targets
+    )
+
+    for name in selected_xcframework_names:
+        xcframework_target = XCFRAMEWORK_TARGETS_BY_NAME[name]
+        append_unique(selected_build_names, [xcframework_target.ios_device_target])
+        append_unique(selected_universal_names, xcframework_target.universal_targets)
 
     if include_universal_prerequisites:
         for name in selected_universal_names:
@@ -320,10 +374,15 @@ def resolve_targets(
         UNIVERSAL_TARGETS_BY_NAME[name].matrix_entry()
         for name in selected_universal_names
     ]
+    xcframework_matrix = [
+        XCFRAMEWORK_TARGETS_BY_NAME[name].matrix_entry()
+        for name in selected_xcframework_names
+    ]
 
     return Resolution(
         build_targets=build_matrix,
         universal_targets=universal_matrix,
+        xcframework_targets=xcframework_matrix,
         notices=notices,
     )
 
@@ -387,6 +446,19 @@ def main() -> int:
             print(
                 f"{target['target']} sources: "
                 f"{target['source_aarch64_target']}, {target['source_x86_64_target']}"
+            )
+
+    if resolution.xcframework_targets:
+        print(
+            f"Selected {len(resolution.xcframework_targets)} XCFramework target(s): "
+            f"{','.join(resolution.xcframework_target_names)}"
+        )
+        for target in resolution.xcframework_targets:
+            print(
+                f"{target['target']} sources: "
+                f"{target['ios_device_target']}, "
+                f"{target['ios_simulator_universal_target']}, "
+                f"{target['macos_universal_target']}"
             )
 
     outputs = resolution.output_values()

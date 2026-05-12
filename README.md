@@ -10,8 +10,9 @@ Important inputs:
 
 - `onnxruntime-ref`: ONNX Runtime branch or tag. The current default is `v1.22.2`.
 - `target-all`: builds every active target when checked. It defaults to `true` and preserves the normal full-matrix behavior.
-- Target checkboxes: uncheck `target-all`, then check one or more exact target names such as `linux-x86_64-static`, `ios-simulator-aarch64-static`, or `ios-simulator-universal-static`. If `target-all` is false and no target checkbox is selected, the workflow fails before runner setup.
+- Target checkboxes: uncheck `target-all`, then check one or more exact target names such as `linux-x86_64-static`, `ios-simulator-aarch64-static`, `ios-simulator-universal-static`, or `apple-xcframework`. If `target-all` is false and no target checkbox is selected, the workflow fails before runner setup.
 - Universal Apple checkboxes: `macos-universal-static` and `ios-simulator-universal-static` are derived with `lipo` after their matching aarch64 and x86_64 source slices finish. Selecting one schedules the required source slice builds; selecting only a source slice does not package a universal artifact.
+- Apple XCFramework checkbox: `apple-xcframework` is derived from `ios-aarch64-static`, `ios-simulator-universal-static`, and `macos-universal-static`. Selecting it schedules the required source static and universal artifacts, validates headers and SDKs, runs macOS and iOS simulator consumer compile/link smoke tests, then uploads `ort-<onnxruntime-ref>-apple-xcframework-<buildtype>`.
 - `buildtype`: `Release`, `Debug`, or `Both`.
 - Provider checkboxes: `enable-xnnpack`, `enable-openvino`, `enable-directml`, `enable-coreml`, and `enable-nnapi` default to `true`. Each provider is added only to compatible selected targets; unsupported combinations are ignored with a workflow notice.
 - `publish`: when true, successful artifacts are gathered by the publish workflow and uploaded to a draft release with `manifest.json`.
@@ -42,6 +43,7 @@ Default providers below assume the provider checkboxes are left enabled.
 | `ios-simulator-aarch64-static` | iOS simulator | arm64 | XNNPACK, CoreML | Simulator build on macOS runner. |
 | `ios-simulator-x86_64-static` | iOS simulator | x86_64 | XNNPACK, CoreML | Simulator build on macOS runner. |
 | `ios-simulator-universal-static` | iOS simulator | arm64, x86_64 | XNNPACK, CoreML | Derived with `lipo` from the two simulator static slices. |
+| `apple-xcframework` | iOS, iOS simulator, macOS | arm64, x86_64 where applicable | XNNPACK, CoreML | Derived with `xcodebuild -create-xcframework` from iOS device, simulator universal, and macOS universal static artifacts. |
 | `windows-md-x86_64-static` | Windows | x64 | DirectML, XNNPACK | Static ORT libraries with the dynamic MSVC runtime (`/MD`). |
 | `android-arm64-v8a-static` | Android | arm64-v8a | XNNPACK, NNAPI | Native static archive for downstream CMake/JNI integration. |
 | `android-armeabi-v7a-static` | Android | armeabi-v7a | XNNPACK, NNAPI | Native static archive; no Java bindings or AAR are packaged. |
@@ -53,6 +55,8 @@ Windows static artifacts currently enable only the dynamic CRT target. Static CR
 Android artifacts are native static archives for consuming projects. They do not package ONNX Runtime Java bindings, `onnxruntime4j`, or an AAR.
 
 Universal Apple artifacts preserve the normal `onnxruntime` package layout and replace only the primary static archive under `onnxruntime/lib`. The packaging step compares header trees and reduced-operator metadata before choosing one source artifact as the layout template. Reduced-operator universal artifacts keep the same `ops-<12-hex-chars>` marker as their source slices.
+
+Apple XCFramework artifacts contain `onnxruntime.xcframework` and a packaged `README.md` at the archive root; consumers do not need to copy a separate `include` directory. The XCFramework packager compares public headers from the iOS device, iOS simulator universal, and macOS universal artifacts before choosing the packaged header tree. It verifies `lipo -info`, discovers Apple SDKs with `xcrun`, creates the bundle with `xcodebuild -create-xcframework`, and compiles/links minimal macOS and iOS simulator consumers before upload. For default CoreML-enabled Apple builds, Xcode consumers should link `Foundation.framework`, `CoreML.framework`, `Accelerate.framework`, and add `-lc++` to Other Linker Flags. The repository builds Apple artifacts with deployment targets iOS 15.0 and macOS 13.3.
 
 ## Ralph Wiggum Workflow
 
@@ -137,7 +141,7 @@ Run these lightweight checks before committing maintenance or build-orchestratio
 ```bash
 ./build.sh --dry-run
 bash -n build.sh scripts/ralph-loop.sh scripts/ralph-loop-codex.sh scripts/ralph-loop-gemini.sh scripts/ralph-loop-copilot.sh scripts/lib/spec_queue.sh scripts/lib/nr_of_tries.sh
-python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/validate_required_operators_config.py
+python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/validate_required_operators_config.py .github/scripts/resolve_build_targets.py .github/scripts/create_apple_universal_static_artifact.py .github/scripts/create_apple_xcframework_artifact.py
 git diff --check
 ```
 

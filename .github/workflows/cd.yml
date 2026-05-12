@@ -61,6 +61,11 @@ on:
         description: "iOS simulator universal static, derived from aarch64 and x86_64"
         required: false
         default: false
+      apple-xcframework:
+        type: boolean
+        description: "Apple XCFramework, derived from iOS device, simulator universal, and macOS universal"
+        required: false
+        default: false
       android-arm64-v8a-static:
         type: boolean
         description: "Android arm64-v8a static"
@@ -152,6 +157,7 @@ jobs:
           IOS_SIMULATOR_AARCH64_STATIC: ${{ inputs['ios-simulator-aarch64-static'] }}
           IOS_SIMULATOR_X86_64_STATIC: ${{ inputs['ios-simulator-x86_64-static'] }}
           IOS_SIMULATOR_UNIVERSAL_STATIC: ${{ inputs['ios-simulator-universal-static'] }}
+          APPLE_XCFRAMEWORK: ${{ inputs['apple-xcframework'] }}
           ANDROID_ARM64_V8A_STATIC: ${{ inputs['android-arm64-v8a-static'] }}
           ANDROID_ARMEABI_V7A_STATIC: ${{ inputs['android-armeabi-v7a-static'] }}
           ANDROID_X86_64_STATIC: ${{ inputs['android-x86_64-static'] }}
@@ -174,6 +180,7 @@ jobs:
           [[ "$IOS_SIMULATOR_AARCH64_STATIC" == "true" ]] && targets+=(ios-simulator-aarch64-static)
           [[ "$IOS_SIMULATOR_X86_64_STATIC" == "true" ]] && targets+=(ios-simulator-x86_64-static)
           [[ "$IOS_SIMULATOR_UNIVERSAL_STATIC" == "true" ]] && targets+=(ios-simulator-universal-static)
+          [[ "$APPLE_XCFRAMEWORK" == "true" ]] && targets+=(apple-xcframework)
           [[ "$ANDROID_ARM64_V8A_STATIC" == "true" ]] && targets+=(android-arm64-v8a-static)
           [[ "$ANDROID_ARMEABI_V7A_STATIC" == "true" ]] && targets+=(android-armeabi-v7a-static)
           [[ "$ANDROID_X86_64_STATIC" == "true" ]] && targets+=(android-x86_64-static)

@@ -20,6 +20,7 @@ class ResolveBuildTargetsTest(unittest.TestCase):
             resolution.universal_target_names,
             ["macos-universal-static", "ios-simulator-universal-static"],
         )
+        self.assertEqual(resolution.xcframework_target_names, ["apple-xcframework"])
 
     def test_macos_universal_selected_alone_schedules_sources(self) -> None:
         resolution = resolve_targets("macos-universal-static")
@@ -41,6 +42,26 @@ class ResolveBuildTargetsTest(unittest.TestCase):
             resolution.universal_target_names,
             ["ios-simulator-universal-static"],
         )
+        self.assertEqual(resolution.xcframework_target_names, [])
+
+    def test_apple_xcframework_selected_alone_schedules_sources(self) -> None:
+        resolution = resolve_targets("apple-xcframework")
+
+        self.assertEqual(
+            resolution.build_target_names,
+            [
+                "ios-aarch64-static",
+                "ios-simulator-aarch64-static",
+                "ios-simulator-x86_64-static",
+                "macos-aarch64-static",
+                "macos-x86_64-static",
+            ],
+        )
+        self.assertEqual(
+            resolution.universal_target_names,
+            ["ios-simulator-universal-static", "macos-universal-static"],
+        )
+        self.assertEqual(resolution.xcframework_target_names, ["apple-xcframework"])
 
     def test_source_slices_without_universal_do_not_package_universal(self) -> None:
         resolution = resolve_targets("macos-aarch64-static,macos-x86_64-static")
@@ -50,12 +71,14 @@ class ResolveBuildTargetsTest(unittest.TestCase):
             ["macos-aarch64-static", "macos-x86_64-static"],
         )
         self.assertEqual(resolution.universal_target_names, [])
+        self.assertEqual(resolution.xcframework_target_names, [])
 
     def test_single_architecture_selection_stays_single_architecture(self) -> None:
         resolution = resolve_targets("ios-simulator-aarch64-static")
 
         self.assertEqual(resolution.build_target_names, ["ios-simulator-aarch64-static"])
         self.assertEqual(resolution.universal_target_names, [])
+        self.assertEqual(resolution.xcframework_target_names, [])
 
     def test_unknown_target_fails(self) -> None:
         with self.assertRaisesRegex(TargetResolutionError, "Unknown build target"):
