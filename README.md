@@ -23,7 +23,15 @@ The loop writes runtime logs under `logs/` and generated prompt files at the rep
 
 ## Build Targets
 
-The CD workflow can build all enabled targets or one target preset at a time. Enabled static Linux artifact targets are:
+The CD workflow can build all enabled targets or one target preset at a time. Enabled static artifact targets are:
 
 - `linux-x86_64-static`: native Ubuntu x86_64 build with XNNPACK and OpenVINO.
 - `linux-aarch64-static`: Ubuntu-hosted aarch64 cross build with XNNPACK and OpenVINO.
+- `macos-x86_64-static`: macOS x86_64 build with XNNPACK and Core ML.
+- `macos-aarch64-static`: macOS arm64 build with XNNPACK and Core ML.
+- `ios-aarch64-static`: iOS device arm64 build with XNNPACK and Core ML.
+- `ios-simulator-aarch64-static`: iOS simulator arm64 build with XNNPACK and Core ML.
+- `ios-simulator-x86_64-static`: iOS simulator x86_64 build with XNNPACK and Core ML.
+- `windows-md-x86_64-static`: Windows x64 build with DirectML, XNNPACK, and the dynamic MSVC runtime (`/MD`).
+
+Windows static artifacts currently enable the dynamic CRT target only. The static CRT variant and Windows ARM64 are deferred to later specs so they can receive separate runner, toolchain, and downstream-linking validation.

@@ -296,7 +296,11 @@ fi
 if [[ "$IS_WINDOWS" == "true" && "$USE_NINJA" == "ON" ]]; then
 	# find default VS installer path to obtain the `vswhere.exe` path
 	PROGFILES_X86=$(printenv "ProgramFiles(x86)" 2>/dev/null || echo "")
-	[[ -z "$PROGFILES_X86" ]] && PROGFILES_X86="/c/Program Files (x86)"
+	if [[ -n "$PROGFILES_X86" ]]; then
+		PROGFILES_X86=$(cygpath -u "$PROGFILES_X86")
+	else
+		PROGFILES_X86="/c/Program Files (x86)"
+	fi
 	VSWHERE_PATH="$PROGFILES_X86/Microsoft Visual Studio/Installer/vswhere.exe"
 
 	# determine VS path

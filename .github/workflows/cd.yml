@@ -17,7 +17,7 @@ on:
           - linux-x86_64-static
           - macos-aarch64-static
           - macos-x86_64-static
-          # - windows-md-x86_64-static
+          - windows-md-x86_64-static
           # - windows-mt-x86_64-static
           # - emscripten-wasm32
           - ios-aarch64-static

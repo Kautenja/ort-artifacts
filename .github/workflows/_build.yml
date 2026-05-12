@@ -46,12 +46,12 @@ jobs:
           - target: macos-x86_64-static
             args: "--static --xnnpack --coreml -N"
             runs-on: macos-14
-          # - target: windows-md-x86_64-static
-          #   args: "--static --directml --xnnpack --openvino -N"
-          #   runs-on: windows-2025
+          - target: windows-md-x86_64-static
+            args: "--static --directml --xnnpack -N"
+            runs-on: windows-2022
           # - target: windows-mt-x86_64-static
-          #   args: "--static --mt --directml --xnnpack --openvino -N"
-          #   runs-on: windows-2025
+          #   args: "--static --mt --directml --xnnpack -N"
+          #   runs-on: windows-2022
           # - target: emscripten-wasm32
           #   args: "-W --webgpu"
           #   runs-on: ubuntu-22.04
@@ -148,6 +148,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang
 
+      - name: Verify Windows build tools
+        if: >
+          contains(matrix.target, 'windows') &&
+          (
+            (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) ||
+            (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
+          )
+        shell: bash
+        run: |
+          command -v cmake
+          command -v ninja
+          command -v 7z
+
+          PROGFILES_X86=$(printenv "ProgramFiles(x86)" 2>/dev/null || true)
+          if [[ -n "$PROGFILES_X86" ]]; then
+            PROGFILES_X86=$(cygpath -u "$PROGFILES_X86")
+          else
+            PROGFILES_X86="/c/Program Files (x86)"
+          fi
+
+          VSWHERE_PATH="$PROGFILES_X86/Microsoft Visual Studio/Installer/vswhere.exe"
+          "$VSWHERE_PATH" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+
       - name: Run build
         if: >
           (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) ||
@@ -197,11 +220,11 @@ jobs:
         run: |
           if [[ "${{ matrix.target }}" == *windows* ]]; then
             pushd build/artifact
-            7z a -tzip $(dirs +1 -l)/ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}.zip
+            7z a -tzip "$(dirs +1 -l)/ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}.zip" .
             popd
           else
             pushd build/artifact
-            zip -y -r $(dirs +1 -l)/ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}.zip .
+            zip -y -r "$(dirs +1 -l)/ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}.zip" .
             popd
           fi
         shell: bash
