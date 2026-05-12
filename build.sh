@@ -141,7 +141,7 @@ while [[ $# -gt 0 ]]; do
 		echo "      --debug                  Set debug build mode (same as: -b Debug)"
 		echo "      --release                Set release build mode (same as: -b Release)"
 		echo "  -N, --ninja                  Build with Ninja"
-		echo "  -A, --arch <arch>            Configure target architecture (x86_64, aarch64) (default: x86_64)"
+		echo "  -A, --arch <arch>            Configure target architecture (x86_64, x86, aarch64, armv7) (default: x86_64)"
 		echo "      --iphoneos               Target iOS / iPadOS"
 		echo "      --iphonesimulator        Target iOS / iPadOS simulator"
 		echo "      --android                Target Android"
@@ -238,6 +238,28 @@ if [[ "$CLEAN" == "ON" || "$CLEAN_ALL" == "ON" ]]; then
 
 	echo "Finished cleaning up."
 	exit 0
+fi
+
+if [[ "$ANDROID" == "ON" ]]; then
+	case "$ANDROID_ABI" in
+	arm64-v8a)
+		TARGET_ARCH="aarch64"
+		;;
+	armeabi-v7a)
+		TARGET_ARCH="armv7"
+		;;
+	x86_64)
+		TARGET_ARCH="x86_64"
+		;;
+	x86)
+		TARGET_ARCH="x86"
+		;;
+	*)
+		echo "Unsupported Android ABI: $ANDROID_ABI" >&2
+		echo "Supported Android ABIs: arm64-v8a, armeabi-v7a, x86_64, x86" >&2
+		exit 1
+		;;
+	esac
 fi
 
 # configure generator arguments

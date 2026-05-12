@@ -33,5 +33,11 @@ The CD workflow can build all enabled targets or one target preset at a time. En
 - `ios-simulator-aarch64-static`: iOS simulator arm64 build with XNNPACK and Core ML.
 - `ios-simulator-x86_64-static`: iOS simulator x86_64 build with XNNPACK and Core ML.
 - `windows-md-x86_64-static`: Windows x64 build with DirectML, XNNPACK, and the dynamic MSVC runtime (`/MD`).
+- `android-arm64-v8a-static`: Android arm64-v8a native static build with XNNPACK and NNAPI.
+- `android-armeabi-v7a-static`: Android armeabi-v7a native static build with XNNPACK and NNAPI.
+- `android-x86_64-static`: Android x86_64 native static build with XNNPACK and NNAPI.
+- `android-x86-static`: Android x86 native static build with XNNPACK and NNAPI.
 
 Windows static artifacts currently enable the dynamic CRT target only. The static CRT variant and Windows ARM64 are deferred to later specs so they can receive separate runner, toolchain, and downstream-linking validation.
+
+Android artifacts are native static archives for downstream CMake/JNI integration. They do not package ONNX Runtime Java bindings, `onnxruntime4j`, or an AAR; JNI bindings are expected to live in the consuming project.

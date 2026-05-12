@@ -11,7 +11,7 @@ include(ExternalProject)
 set(REFERENCE "main" CACHE STRING "Exact branch or tag")
 option(STATIC_BUILD "Build static library" OFF)
 set(TARGET_ARCH "x86_64" CACHE STRING "Target architecture")
-set_property(CACHE TARGET_ARCH PROPERTY STRINGS x86_64 aarch64)
+set_property(CACHE TARGET_ARCH PROPERTY STRINGS x86_64 x86 aarch64 armv7)
 
 # Platform options
 option(IPHONEOS "Target iOS/iPadOS" OFF)
@@ -52,6 +52,19 @@ endif()
 
 # Environment variable validation for cross-compilation
 if(ANDROID)
+    set(SUPPORTED_ANDROID_ABIS armeabi-v7a arm64-v8a x86_64 x86)
+    if(NOT ANDROID_ABI IN_LIST SUPPORTED_ANDROID_ABIS)
+        message(FATAL_ERROR "Unsupported Android ABI '${ANDROID_ABI}'. Supported ABIs: ${SUPPORTED_ANDROID_ABIS}")
+    endif()
+    if(ANDROID_ABI STREQUAL "arm64-v8a")
+        set(TARGET_ARCH "aarch64" CACHE STRING "Target architecture" FORCE)
+    elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
+        set(TARGET_ARCH "armv7" CACHE STRING "Target architecture" FORCE)
+    elseif(ANDROID_ABI STREQUAL "x86_64")
+        set(TARGET_ARCH "x86_64" CACHE STRING "Target architecture" FORCE)
+    elseif(ANDROID_ABI STREQUAL "x86")
+        set(TARGET_ARCH "x86" CACHE STRING "Target architecture" FORCE)
+    endif()
     if(NOT DEFINED ENV{ANDROID_NDK_HOME})
         message(FATAL_ERROR "ANDROID_NDK_HOME environment variable must be set for Android builds")
     endif()
@@ -61,11 +74,11 @@ if(ANDROID)
 endif()
 
 # Execution provider platform compatibility checks
-if(USE_DIRECTML AND NOT PLATFORM_WIN32)
+if(USE_DIRECTML AND (NOT PLATFORM_WIN32 OR ANDROID))
     message(FATAL_ERROR "DirectML EP is only available on Windows")
 endif()
 
-if(USE_COREML AND NOT PLATFORM_DARWIN)
+if(USE_COREML AND (NOT PLATFORM_DARWIN OR ANDROID))
     message(FATAL_ERROR "CoreML EP is only available on macOS/iOS")
 endif()
 
@@ -73,8 +86,8 @@ if(USE_NNAPI AND NOT ANDROID)
     message(FATAL_ERROR "NNAPI EP is only available on Android")
 endif()
 
-if(USE_OPENVINO AND PLATFORM_DARWIN)
-    message(FATAL_ERROR "OpenVINO EP is not available on macOS")
+if(USE_OPENVINO AND (PLATFORM_DARWIN OR ANDROID))
+    message(FATAL_ERROR "OpenVINO EP is not available on macOS or Android")
 endif()
 
 # Prepare patch command
@@ -134,7 +147,7 @@ else()
 endif()
 
 # Platform-specific configuration
-if(PLATFORM_DARWIN)
+if(PLATFORM_DARWIN AND NOT ANDROID)
     list(APPEND CMAKE_ARGS -Dprotobuf_BUILD_PROTOC_BINARIES=OFF)
     list(APPEND CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
@@ -187,7 +200,7 @@ if(PLATFORM_LINUX AND NOT ANDROID AND TARGET_ARCH STREQUAL "aarch64")
 endif()
 
 # Windows configuration
-if(PLATFORM_WIN32)
+if(PLATFORM_WIN32 AND NOT ANDROID)
     # Windows-specific compiler flags
     list(APPEND COMPILER_FLAGS "D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR")
 
@@ -218,11 +231,11 @@ if(PLATFORM_WIN32)
 endif()
 
 # Execution Provider configuration
-if(USE_DIRECTML AND PLATFORM_WIN32)
+if(USE_DIRECTML AND PLATFORM_WIN32 AND NOT ANDROID)
     list(APPEND CMAKE_ARGS -Donnxruntime_USE_DML=ON)
 endif()
 
-if(USE_COREML AND PLATFORM_DARWIN)
+if(USE_COREML AND PLATFORM_DARWIN AND NOT ANDROID)
     list(APPEND CMAKE_ARGS -Donnxruntime_USE_COREML=ON)
 endif()
 
@@ -242,7 +255,7 @@ if(USE_WEBGPU)
     )
 endif()
 
-if(USE_OPENVINO AND (PLATFORM_WIN32 OR PLATFORM_LINUX))
+if(USE_OPENVINO AND NOT ANDROID AND (PLATFORM_WIN32 OR PLATFORM_LINUX))
     list(APPEND CMAKE_ARGS
         -Donnxruntime_USE_OPENVINO=ON
         -Donnxruntime_USE_OPENVINO_GPU=ON

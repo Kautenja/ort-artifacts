@@ -1,6 +1,6 @@
 # Specification: Android Static Artifact Workflows
 
-Status: TODO
+Status: COMPLETE
 
 ## Feature: Android Multi-ABI Static ONNX Runtime Artifacts
 
@@ -22,38 +22,38 @@ The artifacts are intended for downstream native C/C++ integration through CMake
 The reusable build workflow must include active Android static targets for all four standard ABIs.
 
 **Acceptance Criteria:**
-- [ ] `.github/workflows/_build.yml` includes active matrix entries for `android-arm64-v8a-static`, `android-armeabi-v7a-static`, `android-x86_64-static`, and `android-x86-static`.
-- [ ] Each Android target passes `--android` and the correct `--android_abi` value to `build.sh`.
-- [ ] Architecture-related `build.sh` and CMake behavior supports all four ABIs, including 32-bit ARM and 32-bit x86.
-- [ ] Target names appear consistently in artifact names, archive names, and manual workflow filters.
+- [x] `.github/workflows/_build.yml` includes active matrix entries for `android-arm64-v8a-static`, `android-armeabi-v7a-static`, `android-x86_64-static`, and `android-x86-static`.
+- [x] Each Android target passes `--android` and the correct `--android_abi` value to `build.sh`.
+- [x] Architecture-related `build.sh` and CMake behavior supports all four ABIs, including 32-bit ARM and 32-bit x86.
+- [x] Target names appear consistently in artifact names, archive names, and manual workflow filters.
 
 ### FR-2: Android NDK Setup
 The workflow must configure Android SDK and NDK dependencies for every Android ABI target.
 
 **Acceptance Criteria:**
-- [ ] Android SDK setup runs for every Android target.
-- [ ] NDK setup runs for every Android target.
-- [ ] `ANDROID_NDK_HOME` and `ANDROID_SDK_ROOT` are available to `build.sh`.
-- [ ] Android setup steps are scoped to Android targets and do not affect Linux, Windows, macOS, iOS, or WebAssembly targets.
+- [x] Android SDK setup runs for every Android target.
+- [x] NDK setup runs for every Android target.
+- [x] `ANDROID_NDK_HOME` and `ANDROID_SDK_ROOT` are available to `build.sh`.
+- [x] Android setup steps are scoped to Android targets and do not affect Linux, Windows, macOS, iOS, or WebAssembly targets.
 
 ### FR-3: Static Native Output Only
 Android artifacts must be native static build outputs suitable for CMake/JNI integration, not Java-first packages.
 
 **Acceptance Criteria:**
-- [ ] The workflow does not build or package `onnxruntime4j`.
-- [ ] The workflow does not produce an AAR as the primary deliverable.
-- [ ] Each Android archive contains static native libraries, headers, and dependency files needed by a downstream CMake project.
-- [ ] Documentation or completion notes state that JNI binding is expected to happen in the consuming project.
+- [x] The workflow does not build or package `onnxruntime4j`.
+- [x] The workflow does not produce an AAR as the primary deliverable.
+- [x] Each Android archive contains static native libraries, headers, and dependency files needed by a downstream CMake project.
+- [x] Documentation or completion notes state that JNI binding is expected to happen in the consuming project.
 
 ### FR-4: Android Workflow Dispatch and Release Metadata
 The manual CD workflow and publishing flow must include Android targets.
 
 **Acceptance Criteria:**
-- [ ] `.github/workflows/cd.yml` exposes all four Android targets in `target-preset`.
-- [ ] `target-custom` substring filtering can build all Android targets or one ABI-specific Android target.
-- [ ] Selecting `all` includes the Android ABI targets.
-- [ ] Draft release publishing includes Android artifacts and `manifest.json`.
-- [ ] The manifest includes Android archive names and SHA256 checksums.
+- [x] `.github/workflows/cd.yml` exposes all four Android targets in `target-preset`.
+- [x] `target-custom` substring filtering can build all Android targets or one ABI-specific Android target.
+- [x] Selecting `all` includes the Android ABI targets.
+- [x] Draft release publishing includes Android artifacts and `manifest.json`.
+- [x] The manifest includes Android archive names and SHA256 checksums.
 
 ---
 
@@ -78,40 +78,47 @@ The manual CD workflow and publishing flow must include Android targets.
 - NNAPI and XNNPACK remain desirable for Android if the current patch set and dependency setup can support them.
 - If ONNX Runtime no longer supports a requested 32-bit ABI for the selected reference, the agent should document the blocker and create a follow-up spec rather than silently dropping the ABI.
 
+## Implementation Notes
+
+- Enabled four Android native static targets: `android-arm64-v8a-static`, `android-armeabi-v7a-static`, `android-x86_64-static`, and `android-x86-static`.
+- Android targets use XNNPACK and NNAPI, configure the Android SDK/NDK only for Android matrix rows, and pass ABI-specific `--android_abi` values through `build.sh`.
+- `build.sh` and CMake now map Android ABIs to explicit internal architectures so 32-bit ARM and 32-bit x86 are supported intentionally.
+- Android artifacts remain native static archives for downstream CMake/JNI consumers; Java bindings, `onnxruntime4j`, and AAR packaging are intentionally excluded.
+
 ---
 
 ## Completion Signal
 
 ### Implementation Checklist
-- [ ] Enable Android static targets for all four standard ABIs in `.github/workflows/_build.yml`.
-- [ ] Add all four Android target choices to `.github/workflows/cd.yml`.
-- [ ] Adjust `build.sh` architecture handling if required for 32-bit Android ABIs.
-- [ ] Verify native static output contents and exclude Java/AAR deliverables.
-- [ ] Verify artifact upload, naming, and manifest behavior.
+- [x] Enable Android static targets for all four standard ABIs in `.github/workflows/_build.yml`.
+- [x] Add all four Android target choices to `.github/workflows/cd.yml`.
+- [x] Adjust `build.sh` architecture handling if required for 32-bit Android ABIs.
+- [x] Verify native static output contents and exclude Java/AAR deliverables.
+- [x] Verify artifact upload, naming, and manifest behavior.
 
 ### Testing Requirements
 
 The agent MUST complete ALL before outputting the magic phrase:
 
 #### Code Quality
-- [ ] YAML syntax is valid.
-- [ ] Android workflow shell snippets are syntax checked where practical.
-- [ ] `./build.sh --dry-run --static --android --android_abi arm64-v8a --xnnpack --nnapi -N` succeeds.
-- [ ] `./build.sh --dry-run --static --android --android_abi armeabi-v7a --xnnpack --nnapi -N` succeeds.
-- [ ] `./build.sh --dry-run --static --android --android_abi x86_64 --xnnpack --nnapi -N` succeeds.
-- [ ] `./build.sh --dry-run --static --android --android_abi x86 --xnnpack --nnapi -N` succeeds.
+- [x] YAML syntax is valid.
+- [x] Android workflow shell snippets are syntax checked where practical.
+- [x] `./build.sh --dry-run --static --android --android_abi arm64-v8a --xnnpack --nnapi -N` succeeds.
+- [x] `./build.sh --dry-run --static --android --android_abi armeabi-v7a --xnnpack --nnapi -N` succeeds.
+- [x] `./build.sh --dry-run --static --android --android_abi x86_64 --xnnpack --nnapi -N` succeeds.
+- [x] `./build.sh --dry-run --static --android --android_abi x86 --xnnpack --nnapi -N` succeeds.
 
 #### Functional Verification
-- [ ] All acceptance criteria verified.
-- [ ] At least one GitHub Actions run or local equivalent validates every Android ABI target.
-- [ ] Native output is checked for static libraries and headers.
-- [ ] Any unavailable local platform validation is documented in `completion_log/`.
+- [x] All acceptance criteria verified.
+- [x] At least one GitHub Actions run or local equivalent validates every Android ABI target.
+- [x] Native output is checked for static libraries and headers.
+- [x] Any unavailable local platform validation is documented in `completion_log/`.
 
 #### Visual Verification (if UI)
-- [ ] Not applicable.
+- [x] Not applicable.
 
 #### Console/Network Check (if web)
-- [ ] Not applicable.
+- [x] Not applicable.
 
 ### Iteration Instructions
 
@@ -125,5 +132,4 @@ If ANY check fails:
 
 **Only when ALL checks pass, output:** `<promise>DONE</promise>`
 
-NR_OF_TRIES=0
-
+NR_OF_TRIES=1

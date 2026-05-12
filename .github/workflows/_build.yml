@@ -64,9 +64,18 @@ jobs:
           - target: ios-simulator-x86_64-static
             args: "--static --iphonesimulator -A x86_64 --xnnpack --coreml -N"
             runs-on: macos-14
-          # - target: android-aarch64-static
-          #   args: "--static --android -A aarch64 --xnnpack --nnapi -N"
-          #   runs-on: ubuntu-22.04
+          - target: android-arm64-v8a-static
+            args: "--static --android --android_abi arm64-v8a --xnnpack --nnapi -N"
+            runs-on: ubuntu-22.04
+          - target: android-armeabi-v7a-static
+            args: "--static --android --android_abi armeabi-v7a --xnnpack --nnapi -N"
+            runs-on: ubuntu-22.04
+          - target: android-x86_64-static
+            args: "--static --android --android_abi x86_64 --xnnpack --nnapi -N"
+            runs-on: ubuntu-22.04
+          - target: android-x86-static
+            args: "--static --android --android_abi x86 --xnnpack --nnapi -N"
+            runs-on: ubuntu-22.04
 
     steps:
       - name: Free Disk Space (Ubuntu)
@@ -107,20 +116,31 @@ jobs:
         if: (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
 
       - uses: actions/setup-java@v4
-        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && (matrix.target == 'android-aarch64-dylib' || matrix.target == 'android-aarch64-static')
+        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
         with:
           java-version: "17"
           distribution: "temurin"
 
       - uses: android-actions/setup-android@v3
-        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && (matrix.target == 'android-aarch64-dylib' || matrix.target == 'android-aarch64-static')
+        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
 
       - uses: nttld/setup-ndk@v1
         id: setup-ndk
-        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && (matrix.target == 'android-aarch64-dylib' || matrix.target == 'android-aarch64-static')
+        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
         with:
           add-to-path: false
           ndk-version: r28
+
+      - name: Verify Android SDK and NDK
+        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        shell: bash
+        run: |
+          test -n "${ANDROID_SDK_ROOT:-}"
+          test -d "${ANDROID_SDK_ROOT}"
+          test -n "${ANDROID_NDK_HOME:-}"
+          test -d "${ANDROID_NDK_HOME}"
 
       - uses: JW-AV/install-openvino-action@v10.1
         if: contains(matrix.args, '--openvino') && ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset))))
