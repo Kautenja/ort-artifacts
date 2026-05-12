@@ -9,23 +9,33 @@ Open **Actions > CD > Run workflow** to build artifacts on GitHub-hosted runners
 Important inputs:
 
 - `onnxruntime-ref`: ONNX Runtime branch or tag. The current default is `v1.22.2`.
-- `target-all`: builds every active target when checked. It defaults to `true` and preserves the normal full-matrix behavior.
-- Target checkboxes: uncheck `target-all`, then check one or more exact target names such as `linux-x86_64-static`, `ios-simulator-aarch64-static`, `ios-simulator-universal-static`, or `apple-xcframework`. If `target-all` is false and no target checkbox is selected, the workflow fails before runner setup.
+- Target checkboxes: every target defaults to selected, preserving the normal full-matrix behavior. Uncheck one or more exact target names such as `linux-x86_64-static`, `ios-simulator-aarch64-static`, `ios-simulator-universal-static`, or `apple-xcframework` to run a smaller build. If no target checkbox is selected, the workflow fails before runner setup.
 - Universal Apple checkboxes: `macos-universal-static` and `ios-simulator-universal-static` are derived with `lipo` after their matching aarch64 and x86_64 source slices finish. Selecting one schedules the required source slice builds; selecting only a source slice does not package a universal artifact.
 - Apple XCFramework checkbox: `apple-xcframework` is derived from `ios-aarch64-static`, `ios-simulator-universal-static`, and `macos-universal-static`. Selecting it schedules the required source static and universal artifacts, validates headers and SDKs, runs macOS and iOS simulator consumer compile/link smoke tests, then uploads `ort-<onnxruntime-ref>-apple-xcframework-<buildtype>`.
 - `buildtype`: `Release`, `Debug`, or `Both`.
 - Provider checkboxes: `enable-xnnpack`, `enable-openvino`, `enable-directml`, `enable-coreml`, and `enable-nnapi` default to `true`. Each provider is added only to compatible selected targets; unsupported combinations are ignored with a workflow notice.
-- `publish`: when true, successful artifacts are gathered by the publish workflow and uploaded to a draft release with `manifest.json`.
 
 CLI example for one target:
 
 ```bash
 gh workflow run cd.yml \
   -f onnxruntime-ref=v1.22.2 \
-  -f target-all=false \
+  -f linux-aarch64-static=false \
   -f linux-x86_64-static=true \
-  -f buildtype=Release \
-  -f publish=false
+  -f macos-aarch64-static=false \
+  -f macos-x86_64-static=false \
+  -f macos-universal-static=false \
+  -f windows-md-x86_64-static=false \
+  -f ios-aarch64-static=false \
+  -f ios-simulator-aarch64-static=false \
+  -f ios-simulator-x86_64-static=false \
+  -f ios-simulator-universal-static=false \
+  -f apple-xcframework=false \
+  -f android-arm64-v8a-static=false \
+  -f android-armeabi-v7a-static=false \
+  -f android-x86_64-static=false \
+  -f android-x86-static=false \
+  -f buildtype=Release
 ```
 
 ## Build Targets
@@ -117,19 +127,16 @@ $Config = "required_operators.config"
 [Convert]::ToBase64String([IO.File]::ReadAllBytes($Config))
 ```
 
-In the GitHub Actions UI, choose **CD**, select **Run workflow**, paste the single-line output into `required-operators-config-base64`, and enable `enable-reduced-operator-type-support` only for a type-aware config. Leave `target-all` checked for the full matrix, or uncheck it and select exact target checkboxes for a smaller run.
+In the GitHub Actions UI, choose **CD**, select **Run workflow**, paste the single-line output into `required-operators-config-base64`, and enable `enable-reduced-operator-type-support` only for a type-aware config. Leave the target defaults selected for the full matrix, or uncheck exact target checkboxes for a smaller run.
 
-CLI example:
+CLI example for a full-matrix reduced-operator run:
 
 ```bash
 gh workflow run cd.yml \
   -f onnxruntime-ref=v1.22.2 \
-  -f target-all=false \
-  -f linux-x86_64-static=true \
   -f buildtype=Release \
   -f required-operators-config-base64="$(base64 < required_operators.config | tr -d '\n')" \
-  -f enable-reduced-operator-type-support=false \
-  -f publish=false
+  -f enable-reduced-operator-type-support=false
 ```
 
 GitHub `workflow_dispatch` inputs are limited to 65,535 characters. If the generated base64 payload is larger, split the build or check the config into a controlled branch and add a repository-based config path instead of pasting the payload.

@@ -6,86 +6,81 @@ on:
         type: string
         description: "ONNX Runtime repository reference, e.g., 'v1.22.2' or 'main'"
         default: "v1.22.2"
-      target-all:
-        type: boolean
-        description: "All active targets"
-        required: false
-        default: true
       linux-aarch64-static:
         type: boolean
         description: "Linux aarch64 static"
         required: false
-        default: false
+        default: true
       linux-x86_64-static:
         type: boolean
         description: "Linux x86_64 static"
         required: false
-        default: false
+        default: true
       macos-aarch64-static:
         type: boolean
         description: "macOS aarch64 static"
         required: false
-        default: false
+        default: true
       macos-x86_64-static:
         type: boolean
         description: "macOS x86_64 static"
         required: false
-        default: false
+        default: true
       macos-universal-static:
         type: boolean
         description: "macOS universal static, derived from aarch64 and x86_64"
         required: false
-        default: false
+        default: true
       windows-md-x86_64-static:
         type: boolean
         description: "Windows x86_64 static, dynamic CRT"
         required: false
-        default: false
+        default: true
       ios-aarch64-static:
         type: boolean
         description: "iOS device aarch64 static"
         required: false
-        default: false
+        default: true
       ios-simulator-aarch64-static:
         type: boolean
         description: "iOS simulator aarch64 static"
         required: false
-        default: false
+        default: true
       ios-simulator-x86_64-static:
         type: boolean
         description: "iOS simulator x86_64 static"
         required: false
-        default: false
+        default: true
       ios-simulator-universal-static:
         type: boolean
         description: "iOS simulator universal static, derived from aarch64 and x86_64"
         required: false
-        default: false
+        default: true
       apple-xcframework:
         type: boolean
         description: "Apple XCFramework, derived from iOS device, simulator universal, and macOS universal"
         required: false
-        default: false
+        default: true
       android-arm64-v8a-static:
         type: boolean
         description: "Android arm64-v8a static"
         required: false
-        default: false
+        default: true
       android-armeabi-v7a-static:
         type: boolean
         description: "Android armeabi-v7a static"
         required: false
-        default: false
+        default: true
       android-x86_64-static:
         type: boolean
         description: "Android x86_64 static"
         required: false
-        default: false
+        default: true
       android-x86-static:
         type: boolean
         description: "Android x86 static"
         required: false
-        default: false
+        default: true
       buildtype:
         type: choice
         required: true
@@ -129,12 +124,6 @@ on:
         description: "Enable NNAPI for compatible targets only."
         required: false
         default: true
-      publish:
-        type: boolean
-        description: "Publish as draft release on GitHub."
-        required: false
-        default: false
-
 jobs:
   select-targets:
     name: Select build targets
@@ -146,7 +135,6 @@ jobs:
         id: targets
         shell: bash
         env:
-          TARGET_ALL: ${{ inputs['target-all'] }}
           LINUX_AARCH64_STATIC: ${{ inputs['linux-aarch64-static'] }}
           LINUX_X86_64_STATIC: ${{ inputs['linux-x86_64-static'] }}
           MACOS_AARCH64_STATIC: ${{ inputs['macos-aarch64-static'] }}
@@ -163,12 +151,6 @@ jobs:
           ANDROID_X86_64_STATIC: ${{ inputs['android-x86_64-static'] }}
           ANDROID_X86_STATIC: ${{ inputs['android-x86-static'] }}
         run: |
-          if [[ "$TARGET_ALL" == "true" ]]; then
-            echo "targets=all" >> "$GITHUB_OUTPUT"
-            echo "Selected targets: all active targets"
-            exit 0
-          fi
-
           targets=()
           [[ "$LINUX_AARCH64_STATIC" == "true" ]] && targets+=(linux-aarch64-static)
           [[ "$LINUX_X86_64_STATIC" == "true" ]] && targets+=(linux-x86_64-static)
@@ -225,10 +207,3 @@ jobs:
       enable-directml: ${{ inputs.enable-directml }}
       enable-coreml: ${{ inputs.enable-coreml }}
       enable-nnapi: ${{ inputs.enable-nnapi }}
-
-  publish:
-    if: inputs.publish && always() && !cancelled() && !contains(needs.*.result, 'failure')
-    needs: [select-targets, build-debug, build-release]
-    uses: ./.github/workflows/_publish.yml
-    with:
-      onnxruntime-ref: ${{ inputs.onnxruntime-ref }}

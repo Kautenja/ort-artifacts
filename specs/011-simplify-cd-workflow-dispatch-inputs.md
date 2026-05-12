@@ -1,5 +1,7 @@
 # Specification: Simplify CD Workflow Dispatch Inputs
 
+Status: COMPLETE
+
 ## Feature: Remove Redundant Manual CD Inputs
 
 ### Overview
@@ -25,54 +27,54 @@ The workflow should remove both options. Instead of using a separate "all target
 The manual CD workflow must no longer expose draft-release publishing as a `workflow_dispatch` input.
 
 **Acceptance Criteria:**
-- [ ] `.github/workflows/cd.yml` has no top-level `workflow_dispatch` input named `publish`.
-- [ ] The GitHub manual workflow form no longer shows the description `Publish as draft release on GitHub.`
-- [ ] `.github/workflows/cd.yml` contains no references to `inputs.publish`.
-- [ ] Manual CD runs do not publish draft GitHub releases by default after this input is removed.
-- [ ] `_publish.yml` and manifest generation behavior are left unchanged unless a small compatibility edit is required by the removal from `cd.yml`.
-- [ ] If manual draft publishing is still needed, it is deferred to a separate follow-up spec with its own smaller workflow form instead of re-adding an input to `cd.yml`.
+- [x] `.github/workflows/cd.yml` has no top-level `workflow_dispatch` input named `publish`.
+- [x] The GitHub manual workflow form no longer shows the description `Publish as draft release on GitHub.`
+- [x] `.github/workflows/cd.yml` contains no references to `inputs.publish`.
+- [x] Manual CD runs do not publish draft GitHub releases by default after this input is removed.
+- [x] `_publish.yml` and manifest generation behavior are left unchanged unless a small compatibility edit is required by the removal from `cd.yml`.
+- [x] If manual draft publishing is still needed, it is deferred to a separate follow-up spec with its own smaller workflow form instead of re-adding an input to `cd.yml`.
 
 ### FR-2: Remove Manual All Targets Input
 The manual CD workflow must remove the `target-all` checkbox and use individual target defaults instead.
 
 **Acceptance Criteria:**
-- [ ] `.github/workflows/cd.yml` has no top-level `workflow_dispatch` input named `target-all`.
-- [ ] The GitHub manual workflow form no longer shows the description `All active targets`.
-- [ ] The target selection job no longer reads `inputs['target-all']` or a `TARGET_ALL` environment variable.
-- [ ] The target selection job builds the selected target list only from individual target checkbox inputs.
-- [ ] The reusable `_build.yml` workflow may keep accepting `targets: all` for internal or future callers, but `cd.yml` no longer emits `targets=all` from the manual dispatch path.
+- [x] `.github/workflows/cd.yml` has no top-level `workflow_dispatch` input named `target-all`.
+- [x] The GitHub manual workflow form no longer shows the description `All active targets`.
+- [x] The target selection job no longer reads `inputs['target-all']` or a `TARGET_ALL` environment variable.
+- [x] The target selection job builds the selected target list only from individual target checkbox inputs.
+- [x] The reusable `_build.yml` workflow may keep accepting `targets: all` for internal or future callers, but `cd.yml` no longer emits `targets=all` from the manual dispatch path.
 
 ### FR-3: Default All Targets Through Individual Checkboxes
 Every target checkbox in the manual CD workflow must default to selected.
 
 **Acceptance Criteria:**
-- [ ] `linux-aarch64-static` defaults to `true`.
-- [ ] `linux-x86_64-static` defaults to `true`.
-- [ ] `macos-aarch64-static` defaults to `true`.
-- [ ] `macos-x86_64-static` defaults to `true`.
-- [ ] `macos-universal-static` defaults to `true`.
-- [ ] `windows-md-x86_64-static` defaults to `true`.
-- [ ] `ios-aarch64-static` defaults to `true`.
-- [ ] `ios-simulator-aarch64-static` defaults to `true`.
-- [ ] `ios-simulator-x86_64-static` defaults to `true`.
-- [ ] `ios-simulator-universal-static` defaults to `true`.
-- [ ] `apple-xcframework` defaults to `true`.
-- [ ] `android-arm64-v8a-static` defaults to `true`.
-- [ ] `android-armeabi-v7a-static` defaults to `true`.
-- [ ] `android-x86_64-static` defaults to `true`.
-- [ ] `android-x86-static` defaults to `true`.
-- [ ] Leaving all target defaults unchanged produces the same build, universal-artifact, and XCFramework target set that `target-all=true` produced before this change.
-- [ ] Unchecking one or more target inputs narrows the selected target list without changing artifact names for the remaining targets.
-- [ ] If every target checkbox is unchecked, the workflow still fails before expensive setup or build work with a clear message.
+- [x] `linux-aarch64-static` defaults to `true`.
+- [x] `linux-x86_64-static` defaults to `true`.
+- [x] `macos-aarch64-static` defaults to `true`.
+- [x] `macos-x86_64-static` defaults to `true`.
+- [x] `macos-universal-static` defaults to `true`.
+- [x] `windows-md-x86_64-static` defaults to `true`.
+- [x] `ios-aarch64-static` defaults to `true`.
+- [x] `ios-simulator-aarch64-static` defaults to `true`.
+- [x] `ios-simulator-x86_64-static` defaults to `true`.
+- [x] `ios-simulator-universal-static` defaults to `true`.
+- [x] `apple-xcframework` defaults to `true`.
+- [x] `android-arm64-v8a-static` defaults to `true`.
+- [x] `android-armeabi-v7a-static` defaults to `true`.
+- [x] `android-x86_64-static` defaults to `true`.
+- [x] `android-x86-static` defaults to `true`.
+- [x] Leaving all target defaults unchanged produces the same build, universal-artifact, and XCFramework target set that `target-all=true` produced before this change.
+- [x] Unchecking one or more target inputs narrows the selected target list without changing artifact names for the remaining targets.
+- [x] If every target checkbox is unchecked, the workflow still fails before expensive setup or build work with a clear message.
 
 ### FR-4: Stay Under GitHub's Workflow Dispatch Input Limit
 The updated manual CD workflow must fit inside GitHub's `workflow_dispatch` input limit.
 
 **Acceptance Criteria:**
-- [ ] `.github/workflows/cd.yml` defines no more than 25 inputs under `on.workflow_dispatch.inputs`.
-- [ ] With the current target, build, reduced-operator, and provider options, the expected input count after this change is 24.
-- [ ] No new manual dispatch inputs are introduced as part of this work.
-- [ ] A local verification command prints the final input count and fails or is treated as failed if the count is greater than 25.
+- [x] `.github/workflows/cd.yml` defines no more than 25 inputs under `on.workflow_dispatch.inputs`.
+- [x] With the current target, build, reduced-operator, and provider options, the expected input count after this change is 24.
+- [x] No new manual dispatch inputs are introduced as part of this work.
+- [x] A local verification command prints the final input count and fails or is treated as failed if the count is greater than 25.
 
 ---
 
@@ -118,37 +120,37 @@ awk 'BEGIN { n = 0 } /^      [A-Za-z0-9_-]+:$/ { n++ } END { print n; exit (n > 
 ## Completion Signal
 
 ### Implementation Checklist
-- [ ] Remove the `publish` manual workflow input and stale `inputs.publish` usage.
-- [ ] Remove the `target-all` manual workflow input and stale target-all selection logic.
-- [ ] Default every individual target checkbox to `true`.
-- [ ] Verify the default checkbox state selects all current active, universal, and XCFramework targets.
-- [ ] Verify manual dispatch input count is 24 and no greater than 25.
+- [x] Remove the `publish` manual workflow input and stale `inputs.publish` usage.
+- [x] Remove the `target-all` manual workflow input and stale target-all selection logic.
+- [x] Default every individual target checkbox to `true`.
+- [x] Verify the default checkbox state selects all current active, universal, and XCFramework targets.
+- [x] Verify manual dispatch input count is 24 and no greater than 25.
 
 ### Testing Requirements
 
 The agent MUST complete ALL before outputting the magic phrase:
 
 #### Code Quality
-- [ ] YAML syntax is valid.
-- [ ] Workflow expressions are valid for `workflow_dispatch` and `workflow_call`.
-- [ ] `actionlint` succeeds for changed workflow files, if available.
-- [ ] `git diff --check` succeeds.
+- [x] YAML syntax is valid.
+- [x] Workflow expressions are valid for `workflow_dispatch` and `workflow_call`.
+- [x] `actionlint` succeeds for changed workflow files, if available.
+- [x] `git diff --check` succeeds.
 
 #### Functional Verification
-- [ ] Local input-count check reports 24 inputs for `.github/workflows/cd.yml`.
-- [ ] Target resolver tests pass.
-- [ ] A default manual dispatch configuration resolves to all currently selectable targets.
-- [ ] A single checked target still resolves to that target and any required derived-artifact prerequisites.
-- [ ] An empty target selection still fails before platform setup or build work.
-- [ ] Build, universal artifact, XCFramework, provider, and reduced-operator behavior remain unchanged for equivalent selected target sets.
+- [x] Local input-count check reports 24 inputs for `.github/workflows/cd.yml`.
+- [x] Target resolver tests pass.
+- [x] A default manual dispatch configuration resolves to all currently selectable targets.
+- [x] A single checked target still resolves to that target and any required derived-artifact prerequisites.
+- [x] An empty target selection still fails before platform setup or build work.
+- [x] Build, universal artifact, XCFramework, provider, and reduced-operator behavior remain unchanged for equivalent selected target sets.
 
 #### Visual Verification (if UI)
-- [ ] GitHub manual workflow form no longer shows `Publish as draft release on GitHub.`
-- [ ] GitHub manual workflow form no longer shows `All active targets`.
-- [ ] Every individual target checkbox is selected by default.
+- [x] GitHub manual workflow form no longer shows `Publish as draft release on GitHub.`
+- [x] GitHub manual workflow form no longer shows `All active targets`.
+- [x] Every individual target checkbox is selected by default.
 
 #### Console/Network Check (if web)
-- [ ] Not applicable.
+- [x] Not applicable.
 
 ### Iteration Instructions
 
@@ -162,4 +164,4 @@ If ANY check fails:
 
 **Only when ALL checks pass, output:** `<promise>DONE</promise>`
 
-NR_OF_TRIES=0
+NR_OF_TRIES=1

@@ -282,7 +282,7 @@ def parse_requested_targets(raw_targets: str) -> tuple[List[str], List[str], Lis
 
     if not compact_targets:
         raise TargetResolutionError(
-            "No build targets selected. Check target-all or select at least one target checkbox."
+            "No build targets selected. Select at least one target checkbox."
         )
 
     if compact_targets == "all":
@@ -312,7 +312,7 @@ def parse_requested_targets(raw_targets: str) -> tuple[List[str], List[str], Lis
 
     if not build_targets and not universal_targets and not xcframework_targets:
         raise TargetResolutionError(
-            "No build targets selected. Check target-all or select at least one target checkbox."
+            "No build targets selected. Select at least one target checkbox."
         )
 
     return build_targets, universal_targets, xcframework_targets
