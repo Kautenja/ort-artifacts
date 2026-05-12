@@ -91,12 +91,26 @@ if(USE_OPENVINO AND (PLATFORM_DARWIN OR ANDROID))
 endif()
 
 # Prepare patch command
-file(GLOB PATCH_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/patches/all/*.patch)
+if(REFERENCE MATCHES "^v1\\.22(\\.|$)")
+    set(PATCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/patches/all-v1.22")
+else()
+    set(PATCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/patches/all")
+endif()
+
+message(STATUS "Using ONNX Runtime patch directory: ${PATCH_DIR}")
+
+file(GLOB PATCH_FILES ${PATCH_DIR}/*.patch)
 list(SORT PATCH_FILES)
 set(PATCH_COMMAND "")
 foreach(PATCH_FILE ${PATCH_FILES})
-    list(APPEND PATCH_COMMAND COMMAND git apply ${PATCH_FILE} --ignore-whitespace --recount || true)
+    list(APPEND PATCH_COMMAND
+        COMMAND git apply --check --ignore-whitespace --recount ${PATCH_FILE}
+        COMMAND git apply --ignore-whitespace --recount ${PATCH_FILE})
 endforeach()
+list(APPEND PATCH_COMMAND
+    COMMAND ${CMAKE_COMMAND}
+        -DORT_SOURCE_DIR=<SOURCE_DIR>
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/scripts/verify_onnxruntime_patches.cmake)
 
 
 # Prepare static build configuration command
@@ -194,8 +208,23 @@ if(PLATFORM_LINUX AND NOT ANDROID AND TARGET_ARCH STREQUAL "aarch64")
         list(APPEND CMAKE_ARGS -DCMAKE_SYSROOT=$ENV{CMAKE_SYSROOT})
     endif()
 
+    set(CMAKE_FIND_ROOT_PATH_ENTRIES)
     if(DEFINED ENV{CMAKE_FIND_ROOT_PATH} AND NOT "$ENV{CMAKE_FIND_ROOT_PATH}" STREQUAL "")
-        list(APPEND CMAKE_ARGS -DCMAKE_FIND_ROOT_PATH=$ENV{CMAKE_FIND_ROOT_PATH})
+        list(APPEND CMAKE_FIND_ROOT_PATH_ENTRIES "$ENV{CMAKE_FIND_ROOT_PATH}")
+    endif()
+
+    if(USE_OPENVINO)
+        foreach(OPENVINO_ROOT_ENV IN ITEMS INTEL_OPENVINO_DIR OPENVINO_INSTALL_DIR)
+            if(DEFINED ENV{${OPENVINO_ROOT_ENV}} AND NOT "$ENV{${OPENVINO_ROOT_ENV}}" STREQUAL "")
+                list(APPEND CMAKE_FIND_ROOT_PATH_ENTRIES "$ENV{${OPENVINO_ROOT_ENV}}")
+            endif()
+        endforeach()
+    endif()
+
+    if(CMAKE_FIND_ROOT_PATH_ENTRIES)
+        list(REMOVE_DUPLICATES CMAKE_FIND_ROOT_PATH_ENTRIES)
+        string(REPLACE ";" "<|>" CMAKE_FIND_ROOT_PATH_ARG "${CMAKE_FIND_ROOT_PATH_ENTRIES}")
+        list(APPEND CMAKE_ARGS -DCMAKE_FIND_ROOT_PATH=${CMAKE_FIND_ROOT_PATH_ARG})
     endif()
 endif()
 
@@ -263,6 +292,67 @@ if(USE_OPENVINO AND NOT ANDROID AND (PLATFORM_WIN32 OR PLATFORM_LINUX))
         -Donnxruntime_USE_OPENVINO_NPU=ON
         -Donnxruntime_DISABLE_RTTI=OFF
     )
+
+    set(OPENVINO_CONFIG_DIR "")
+    if(DEFINED ENV{OpenVINO_DIR} AND NOT "$ENV{OpenVINO_DIR}" STREQUAL "")
+        if(EXISTS "$ENV{OpenVINO_DIR}/OpenVINOConfig.cmake" OR EXISTS "$ENV{OpenVINO_DIR}/openvino-config.cmake")
+            set(OPENVINO_CONFIG_DIR "$ENV{OpenVINO_DIR}")
+        endif()
+    endif()
+
+    if(NOT OPENVINO_CONFIG_DIR)
+        foreach(OPENVINO_ROOT_ENV IN ITEMS INTEL_OPENVINO_DIR OPENVINO_INSTALL_DIR)
+            if(DEFINED ENV{${OPENVINO_ROOT_ENV}} AND NOT "$ENV{${OPENVINO_ROOT_ENV}}" STREQUAL "")
+                set(OPENVINO_CANDIDATE_DIR "$ENV{${OPENVINO_ROOT_ENV}}/runtime/cmake")
+                if(EXISTS "${OPENVINO_CANDIDATE_DIR}/OpenVINOConfig.cmake" OR EXISTS "${OPENVINO_CANDIDATE_DIR}/openvino-config.cmake")
+                    set(OPENVINO_CONFIG_DIR "${OPENVINO_CANDIDATE_DIR}")
+                    break()
+                endif()
+            endif()
+        endforeach()
+    endif()
+
+    if(OPENVINO_CONFIG_DIR)
+        list(APPEND CMAKE_ARGS -DOpenVINO_DIR=${OPENVINO_CONFIG_DIR})
+    endif()
+
+    set(OPENVINO_TBB_CONFIG_DIR "")
+    if(DEFINED ENV{TBB_DIR} AND NOT "$ENV{TBB_DIR}" STREQUAL "")
+        if(EXISTS "$ENV{TBB_DIR}/TBBConfig.cmake" OR EXISTS "$ENV{TBB_DIR}/tbb-config.cmake")
+            set(OPENVINO_TBB_CONFIG_DIR "$ENV{TBB_DIR}")
+        endif()
+    endif()
+
+    if(NOT OPENVINO_TBB_CONFIG_DIR)
+        foreach(OPENVINO_ROOT_ENV IN ITEMS INTEL_OPENVINO_DIR OPENVINO_INSTALL_DIR)
+            if(DEFINED ENV{${OPENVINO_ROOT_ENV}} AND NOT "$ENV{${OPENVINO_ROOT_ENV}}" STREQUAL "")
+                foreach(TBB_CANDIDATE_DIR IN ITEMS
+                    "$ENV{${OPENVINO_ROOT_ENV}}/runtime/3rdparty/tbb/lib/cmake/TBB"
+                    "$ENV{${OPENVINO_ROOT_ENV}}/runtime/3rdparty/tbb/lib/cmake/tbb"
+                    "$ENV{${OPENVINO_ROOT_ENV}}/runtime/3rdparty/tbb/lib64/cmake/TBB"
+                    "$ENV{${OPENVINO_ROOT_ENV}}/runtime/3rdparty/tbb/cmake")
+                    if(EXISTS "${TBB_CANDIDATE_DIR}/TBBConfig.cmake" OR EXISTS "${TBB_CANDIDATE_DIR}/tbb-config.cmake")
+                        set(OPENVINO_TBB_CONFIG_DIR "${TBB_CANDIDATE_DIR}")
+                        break()
+                    endif()
+                endforeach()
+            endif()
+
+            if(OPENVINO_TBB_CONFIG_DIR)
+                break()
+            endif()
+        endforeach()
+    endif()
+
+    if(OPENVINO_TBB_CONFIG_DIR)
+        list(APPEND CMAKE_ARGS -DTBB_DIR=${OPENVINO_TBB_CONFIG_DIR})
+    endif()
+
+    if(DEFINED ENV{CMAKE_PREFIX_PATH} AND NOT "$ENV{CMAKE_PREFIX_PATH}" STREQUAL "")
+        cmake_path(CONVERT "$ENV{CMAKE_PREFIX_PATH}" TO_CMAKE_PATH_LIST CMAKE_PREFIX_PATH_ENTRIES NORMALIZE)
+        string(REPLACE ";" "<|>" CMAKE_PREFIX_PATH_ARG "${CMAKE_PREFIX_PATH_ENTRIES}")
+        list(APPEND CMAKE_ARGS -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH_ARG})
+    endif()
 
     if(WIN32)
         if((CMAKE_BUILD_TYPE MATCHES "Debug") OR ("Debug" IN_LIST CMAKE_CONFIGURATION_TYPES))

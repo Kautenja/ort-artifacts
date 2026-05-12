@@ -149,6 +149,41 @@ jobs:
           arch: ${{ contains(matrix.target, 'aarch64') && 'arm64' || 'x86_64' }}
           release: ${{ (contains(matrix.target, 'linux') && (contains(matrix.target, 'aarch64') && 'ubuntu20' || 'ubuntu22') || 'ubuntu22') || '' }}
 
+      - name: Verify OpenVINO CMake package
+        if: contains(matrix.args, '--openvino') && ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset))))
+        shell: bash
+        run: |
+          OPENVINO_ROOT="${INTEL_OPENVINO_DIR:-${OPENVINO_INSTALL_DIR:-}}"
+          if [[ -z "${OpenVINO_DIR:-}" && -n "$OPENVINO_ROOT" ]]; then
+            OpenVINO_DIR="$OPENVINO_ROOT/runtime/cmake"
+            echo "OpenVINO_DIR=$OpenVINO_DIR" >> "$GITHUB_ENV"
+          fi
+
+          if [[ -z "${TBB_DIR:-}" && -n "$OPENVINO_ROOT" ]]; then
+            for candidate in \
+              "$OPENVINO_ROOT/runtime/3rdparty/tbb/lib/cmake/TBB" \
+              "$OPENVINO_ROOT/runtime/3rdparty/tbb/lib/cmake/tbb" \
+              "$OPENVINO_ROOT/runtime/3rdparty/tbb/lib64/cmake/TBB" \
+              "$OPENVINO_ROOT/runtime/3rdparty/tbb/cmake"; do
+              if [[ -f "$candidate/TBBConfig.cmake" || -f "$candidate/tbb-config.cmake" ]]; then
+                TBB_DIR="$candidate"
+                echo "TBB_DIR=$TBB_DIR" >> "$GITHUB_ENV"
+                break
+              fi
+            done
+          fi
+
+          echo "OPENVINO_INSTALL_DIR=${OPENVINO_INSTALL_DIR:-}"
+          echo "INTEL_OPENVINO_DIR=${INTEL_OPENVINO_DIR:-}"
+          echo "OpenVINO_DIR=${OpenVINO_DIR:-}"
+          echo "TBB_DIR=${TBB_DIR:-}"
+
+          test -n "${OpenVINO_DIR:-}"
+          if [[ ! -f "$OpenVINO_DIR/OpenVINOConfig.cmake" && ! -f "$OpenVINO_DIR/openvino-config.cmake" ]]; then
+            echo "OpenVINO CMake config was not found under OpenVINO_DIR=$OpenVINO_DIR" >&2
+            exit 1
+          fi
+
       - name: Ubuntu GCC 11 setup
         if: contains(matrix.runs-on, 'ubuntu-24')
         shell: bash
