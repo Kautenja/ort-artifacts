@@ -78,21 +78,35 @@ The loop writes generated prompt files at the repository root and runtime logs u
 
 Manual CD runs can build model-set-specific ONNX Runtime artifacts from a reduced operator config. Generate a config from ONNX Runtime tooling, for example with `create_reduced_build_config.py`, or keep the `required_operators.config` / `required_operators_and_types.config` emitted when converting ONNX models to ORT format. Type-aware configs can be used with `enable-reduced-operator-type-support`.
 
-Base64 encode the config before starting the workflow. The raw config is decoded only under the runner temp directory and is not uploaded.
+The workflow input expects the base64-encoded contents of the config file, not a path to the file. Use the config file emitted by ONNX Runtime tooling:
+
+- `required_operators.config`: operator-only reduced build config.
+- `required_operators_and_types.config`: type-aware reduced build config. Use this with `enable-reduced-operator-type-support=true`.
+
+Base64 encode the file before starting the workflow. The raw config is decoded only under the runner temp directory and is not uploaded.
 
 macOS/Linux:
 
 ```bash
-base64 -i required_operators.config | tr -d '\n'
+CONFIG=required_operators.config
+base64 < "$CONFIG" | tr -d '\n'
+```
+
+For a type-aware config, point `CONFIG` at the type-aware file:
+
+```bash
+CONFIG=required_operators_and_types.config
+base64 < "$CONFIG" | tr -d '\n'
 ```
 
 Windows PowerShell:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("required_operators.config"))
+$Config = "required_operators.config"
+[Convert]::ToBase64String([IO.File]::ReadAllBytes($Config))
 ```
 
-In the GitHub Actions UI, choose **CD**, select **Run workflow**, paste the base64 string into `required-operators-config-base64`, and enable `enable-reduced-operator-type-support` only for a type-aware config. Leave `target-all` checked for the full matrix, or uncheck it and select exact target checkboxes for a smaller run.
+In the GitHub Actions UI, choose **CD**, select **Run workflow**, paste the single-line output into `required-operators-config-base64`, and enable `enable-reduced-operator-type-support` only for a type-aware config. Leave `target-all` checked for the full matrix, or uncheck it and select exact target checkboxes for a smaller run.
 
 CLI example:
 
@@ -102,7 +116,7 @@ gh workflow run cd.yml \
   -f target-all=false \
   -f linux-x86_64-static=true \
   -f buildtype=Release \
-  -f required-operators-config-base64="$(base64 -i required_operators.config | tr -d '\n')" \
+  -f required-operators-config-base64="$(base64 < required_operators.config | tr -d '\n')" \
   -f enable-reduced-operator-type-support=false \
   -f publish=false
 ```
