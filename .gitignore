@@ -6,6 +6,13 @@
 shrimp-rules.md
 .mcp.json
 .claude/settings.local.json
+__pycache__/
 /sampledata
 /run_*
 /openvino_tests
+
+# Ralph Wiggum generated output
+/PROMPT_build.md
+/PROMPT_plan.md
+/logs/*
+!/logs/.gitkeep

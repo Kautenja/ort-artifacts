@@ -275,8 +275,11 @@ CMAKE_ARGS=(
 	"-DUSE_WEBGPU=$USE_WEBGPU"
 	"-DUSE_OPENVINO=$USE_OPENVINO"
 	"-DUSE_NNAPI=$USE_NNAPI"
-	"${GENERATOR_ARGS[@]}"
 )
+
+if [[ ${#GENERATOR_ARGS[@]} -gt 0 ]]; then
+	CMAKE_ARGS+=("${GENERATOR_ARGS[@]}")
+fi
 
 if [[ "${TARGET_LINUX:-}" == "true" ]]; then
 	export CC=clang
