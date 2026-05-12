@@ -11,14 +11,45 @@ on:
         type: string
         description: "Build type (Debug or Release)"
         required: true
-      target-preset:
+      targets:
         type: string
-        description: "Target preset"
+        description: "Comma-separated exact target names, or all"
         required: true
-      target-custom:
+      required-operators-config-base64:
         type: string
-        description: "Custom target filter"
+        description: "Base64-encoded ONNX Runtime required operators config"
         required: false
+        default: ""
+      enable-reduced-operator-type-support:
+        type: boolean
+        description: "Enable ONNX Runtime reduced operator type support"
+        required: false
+        default: false
+      enable-xnnpack:
+        type: boolean
+        description: "Enable XNNPACK for compatible targets only"
+        required: false
+        default: true
+      enable-openvino:
+        type: boolean
+        description: "Enable OpenVINO for compatible targets only"
+        required: false
+        default: true
+      enable-directml:
+        type: boolean
+        description: "Enable DirectML for compatible targets only"
+        required: false
+        default: true
+      enable-coreml:
+        type: boolean
+        description: "Enable CoreML for compatible targets only"
+        required: false
+        default: true
+      enable-nnapi:
+        type: boolean
+        description: "Enable NNAPI for compatible targets only"
+        required: false
+        default: true
 
 env:
   GCC_VERSION: '11'
@@ -27,64 +58,256 @@ env:
   XCODE_VERSION: '14.3.1'
 
 jobs:
+  validate-targets:
+    name: Validate target selection for ${{ inputs.buildtype }}
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+      targets: ${{ steps.targets.outputs.targets }}
+    steps:
+      - name: Resolve exact target matrix
+        id: targets
+        shell: bash
+        env:
+          SELECTED_TARGETS: ${{ inputs.targets }}
+          ENABLE_XNNPACK: ${{ inputs.enable-xnnpack }}
+          ENABLE_OPENVINO: ${{ inputs.enable-openvino }}
+          ENABLE_DIRECTML: ${{ inputs.enable-directml }}
+          ENABLE_COREML: ${{ inputs.enable-coreml }}
+          ENABLE_NNAPI: ${{ inputs.enable-nnapi }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import shlex
+          import sys
+
+          def enabled_input(name, default="true"):
+              raw = os.environ.get(name, default).strip().lower()
+              if not raw:
+                  raw = default
+              return raw == "true"
+
+          provider_inputs = {
+              "xnnpack": enabled_input("ENABLE_XNNPACK"),
+              "openvino": enabled_input("ENABLE_OPENVINO"),
+              "directml": enabled_input("ENABLE_DIRECTML"),
+              "coreml": enabled_input("ENABLE_COREML"),
+              "nnapi": enabled_input("ENABLE_NNAPI"),
+          }
+          provider_flags = {
+              "xnnpack": "--xnnpack",
+              "openvino": "--openvino",
+              "directml": "--directml",
+              "coreml": "--coreml",
+              "nnapi": "--nnapi",
+          }
+          provider_labels = {
+              "xnnpack": "XNNPACK",
+              "openvino": "OpenVINO",
+              "directml": "DirectML",
+              "coreml": "CoreML",
+              "nnapi": "NNAPI",
+          }
+
+          all_targets = [
+              {
+                  "target": "linux-aarch64-static",
+                  "args": "--static -A aarch64 --xnnpack -N --openvino",
+                  "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "openvino"],
+              },
+              {
+                  "target": "linux-x86_64-static",
+                  "args": "--static --xnnpack -N --openvino",
+                  "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "openvino"],
+              },
+              {
+                  "target": "macos-aarch64-static",
+                  "args": "--static -A aarch64 --xnnpack --coreml -N",
+                  "runs-on": "macos-14",
+                  "providers": ["xnnpack", "coreml"],
+              },
+              {
+                  "target": "macos-x86_64-static",
+                  "args": "--static --xnnpack --coreml -N",
+                  "runs-on": "macos-14",
+                  "providers": ["xnnpack", "coreml"],
+              },
+              {
+                  "target": "windows-md-x86_64-static",
+                  "args": "--static --directml --xnnpack -N",
+                  "runs-on": "windows-2022",
+                  "providers": ["directml", "xnnpack"],
+              },
+              {
+                  "target": "ios-aarch64-static",
+                  "args": "--static --iphoneos -A aarch64 --xnnpack --coreml -N",
+                  "runs-on": "macos-14",
+                  "providers": ["xnnpack", "coreml"],
+              },
+              {
+                  "target": "ios-simulator-aarch64-static",
+                  "args": "--static --iphonesimulator -A aarch64 --xnnpack --coreml -N",
+                  "runs-on": "macos-14",
+                  "providers": ["xnnpack", "coreml"],
+              },
+              {
+                  "target": "ios-simulator-x86_64-static",
+                  "args": "--static --iphonesimulator -A x86_64 --xnnpack --coreml -N",
+                  "runs-on": "macos-14",
+                  "providers": ["xnnpack", "coreml"],
+              },
+              {
+                  "target": "android-arm64-v8a-static",
+                  "args": "--static --android --android_abi arm64-v8a --xnnpack --nnapi -N",
+                  "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "nnapi"],
+              },
+              {
+                  "target": "android-armeabi-v7a-static",
+                  "args": "--static --android --android_abi armeabi-v7a --xnnpack --nnapi -N",
+                  "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "nnapi"],
+              },
+              {
+                  "target": "android-x86_64-static",
+                  "args": "--static --android --android_abi x86_64 --xnnpack --nnapi -N",
+                  "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "nnapi"],
+              },
+              {
+                  "target": "android-x86-static",
+                  "args": "--static --android --android_abi x86 --xnnpack --nnapi -N",
+                  "runs-on": "ubuntu-22.04",
+                  "providers": ["xnnpack", "nnapi"],
+              },
+          ]
+
+          by_name = {target["target"]: target for target in all_targets}
+          raw_targets = "".join(os.environ.get("SELECTED_TARGETS", "").split())
+
+          def fail(message):
+              print(f"::error::{message}")
+              sys.exit(1)
+
+          if not raw_targets:
+              fail("No build targets selected. Check target-all or select at least one target checkbox.")
+
+          if raw_targets == "all":
+              selected_templates = all_targets
+          else:
+              selected_templates = []
+              seen = set()
+              for name in raw_targets.split(","):
+                  if not name:
+                      continue
+                  if name not in by_name:
+                      fail(f"Unknown build target '{name}'. Select one of: {', '.join(by_name)}.")
+                  if name not in seen:
+                      selected_templates.append(by_name[name])
+                      seen.add(name)
+
+          if not selected_templates:
+              fail("No build targets selected. Check target-all or select at least one target checkbox.")
+
+          selected_provider_support = {
+              provider
+              for target in selected_templates
+              for provider in target["providers"]
+          }
+          for provider, enabled in provider_inputs.items():
+              if enabled and provider not in selected_provider_support:
+                  print(
+                      "::notice::"
+                      f"enable-{provider} is true, but no selected target supports "
+                      f"{provider_labels[provider]}; no {provider_flags[provider]} flag will be added."
+                  )
+
+          selected = []
+          for target in selected_templates:
+              resolved = target.copy()
+              disabled_provider_flags = {
+                  provider_flags[provider]
+                  for provider in target["providers"]
+                  if not provider_inputs[provider]
+              }
+              args = [
+                  token
+                  for token in shlex.split(target["args"])
+                  if token not in disabled_provider_flags
+              ]
+              resolved["args"] = " ".join(args)
+              resolved["enabled-providers"] = [
+                  provider
+                  for provider in target["providers"]
+                  if provider_inputs[provider]
+              ]
+              selected.append(resolved)
+
+          target_names = ",".join(target["target"] for target in selected)
+          print(f"Selected {len(selected)} target(s): {target_names}")
+          for target in selected:
+              print(f"{target['target']} build args: {target['args']}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("matrix<<JSON\n")
+              output.write(json.dumps({"include": selected}, separators=(",", ":")))
+              output.write("\nJSON\n")
+              output.write(f"targets={target_names}\n")
+          PY
+
   build:
     name: Build ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ inputs.buildtype }}
+    needs: validate-targets
     runs-on: ${{ matrix.runs-on }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - target: linux-aarch64-static
-            args: "--static -A aarch64 --xnnpack -N --openvino"
-            runs-on: ubuntu-22.04
-          - target: linux-x86_64-static
-            args: "--static --xnnpack -N --openvino"
-            runs-on: ubuntu-22.04
-          - target: macos-aarch64-static
-            args: "--static -A aarch64 --xnnpack --coreml -N"
-            runs-on: macos-14
-          - target: macos-x86_64-static
-            args: "--static --xnnpack --coreml -N"
-            runs-on: macos-14
-          - target: windows-md-x86_64-static
-            args: "--static --directml --xnnpack -N"
-            runs-on: windows-2022
-          # - target: windows-mt-x86_64-static
-          #   args: "--static --mt --directml --xnnpack -N"
-          #   runs-on: windows-2022
-          # - target: emscripten-wasm32
-          #   args: "-W --webgpu"
-          #   runs-on: ubuntu-22.04
-          - target: ios-aarch64-static
-            args: "--static --iphoneos -A aarch64 --xnnpack --coreml -N"
-            runs-on: macos-14
-          - target: ios-simulator-aarch64-static
-            args: "--static --iphonesimulator -A aarch64 --xnnpack --coreml -N"
-            runs-on: macos-14
-          - target: ios-simulator-x86_64-static
-            args: "--static --iphonesimulator -A x86_64 --xnnpack --coreml -N"
-            runs-on: macos-14
-          - target: android-arm64-v8a-static
-            args: "--static --android --android_abi arm64-v8a --xnnpack --nnapi -N"
-            runs-on: ubuntu-22.04
-          - target: android-armeabi-v7a-static
-            args: "--static --android --android_abi armeabi-v7a --xnnpack --nnapi -N"
-            runs-on: ubuntu-22.04
-          - target: android-x86_64-static
-            args: "--static --android --android_abi x86_64 --xnnpack --nnapi -N"
-            runs-on: ubuntu-22.04
-          - target: android-x86-static
-            args: "--static --android --android_abi x86 --xnnpack --nnapi -N"
-            runs-on: ubuntu-22.04
+      matrix: ${{ fromJson(needs.validate-targets.outputs.matrix) }}
 
     steps:
-      - name: Free Disk Space (Ubuntu)
+      - uses: actions/checkout@v4
+
+      - name: Validate reduced operator input combination
         if: >
-          contains(matrix.runs-on, 'ubuntu') &&
-          (
-            (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) ||
-            (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
-          )
+          inputs.enable-reduced-operator-type-support &&
+          inputs.required-operators-config-base64 == ''
+        shell: bash
+        run: |
+          echo "enable-reduced-operator-type-support requires required-operators-config-base64." >&2
+          exit 1
+
+      - name: Decode and validate required operators config
+        id: required-ops
+        if: inputs.required-operators-config-base64 != ''
+        env:
+          REQUIRED_OPERATORS_CONFIG_BASE64: ${{ inputs.required-operators-config-base64 }}
+        shell: bash
+        run: |
+          PYTHON=python3
+          if ! command -v "$PYTHON" >/dev/null 2>&1; then
+            PYTHON=python
+          fi
+          CONFIG_PATH="$RUNNER_TEMP/required_operators.config"
+          if command -v cygpath >/dev/null 2>&1; then
+            CONFIG_PATH="$(cygpath -u "$RUNNER_TEMP")/required_operators.config"
+          fi
+
+          VALIDATION_ARGS=()
+          if [[ "${{ inputs.enable-reduced-operator-type-support }}" == "true" ]]; then
+            VALIDATION_ARGS+=(--enable-reduced-operator-type-support)
+          fi
+
+          "$PYTHON" .github/scripts/validate_required_operators_config.py \
+            --base64-env REQUIRED_OPERATORS_CONFIG_BASE64 \
+            --output "$CONFIG_PATH" \
+            --github-output "$GITHUB_OUTPUT" \
+            "${VALIDATION_ARGS[@]}"
+          echo "path=${CONFIG_PATH}" >> "$GITHUB_OUTPUT"
+
+      - name: Free Disk Space (Ubuntu)
+        if: contains(matrix.runs-on, 'ubuntu')
         uses: ChrisCarini/free-disk-space@main
         with:
           tool-cache: false
@@ -96,7 +319,7 @@ jobs:
           swap-storage: true
 
       - name: Install cross-compilation tools
-        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && (matrix.target == 'linux-aarch64-dylib' || matrix.target == 'linux-aarch64-static')
+        if: matrix.target == 'linux-aarch64-static'
         run: |
           # Install basic build tools
           sudo apt update && sudo apt install -y make ninja-build wget xz-utils
@@ -112,27 +335,24 @@ jobs:
           sudo ln -sf /opt/linaro-toolchain/bin/aarch64-none-linux-gnu-gcc /usr/bin/aarch64-none-linux-gnu-gcc
           sudo ln -sf /opt/linaro-toolchain/bin/aarch64-none-linux-gnu-g++ /usr/bin/aarch64-none-linux-gnu-g++
 
-      - uses: actions/checkout@v4
-        if: (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
-
       - uses: actions/setup-java@v4
-        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
+        if: contains(matrix.target, 'android')
         with:
           java-version: "17"
           distribution: "temurin"
 
       - uses: android-actions/setup-android@v3
-        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
+        if: contains(matrix.target, 'android')
 
       - uses: nttld/setup-ndk@v1
         id: setup-ndk
-        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
+        if: contains(matrix.target, 'android')
         with:
           add-to-path: false
           ndk-version: r28
 
       - name: Verify Android SDK and NDK
-        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
+        if: contains(matrix.target, 'android')
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         shell: bash
@@ -143,14 +363,14 @@ jobs:
           test -d "${ANDROID_NDK_HOME}"
 
       - uses: JW-AV/install-openvino-action@v10.1
-        if: contains(matrix.args, '--openvino') && ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset))))
+        if: contains(matrix.args, '--openvino')
         with:
           version: "2025.2"
           arch: ${{ contains(matrix.target, 'aarch64') && 'arm64' || 'x86_64' }}
           release: ${{ (contains(matrix.target, 'linux') && (contains(matrix.target, 'aarch64') && 'ubuntu20' || 'ubuntu22') || 'ubuntu22') || '' }}
 
       - name: Verify OpenVINO CMake package
-        if: contains(matrix.args, '--openvino') && ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset))))
+        if: contains(matrix.args, '--openvino')
         shell: bash
         run: |
           OPENVINO_ROOT="${INTEL_OPENVINO_DIR:-${OPENVINO_INSTALL_DIR:-}}"
@@ -192,24 +412,14 @@ jobs:
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 70 --slave /usr/bin/g++ g++ /usr/bin/g++-11 --slave /usr/bin/gcov gcov /usr/bin/gcov-11
 
       - name: Install clang
-        if: >
-          contains(matrix.target, 'linux') &&
-          (
-            (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) ||
-            (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
-          )
+        if: contains(matrix.target, 'linux')
         shell: bash
         run: |
           sudo apt-get update
           sudo apt-get install -y clang
 
       - name: Verify Windows build tools
-        if: >
-          contains(matrix.target, 'windows') &&
-          (
-            (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) ||
-            (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
-          )
+        if: contains(matrix.target, 'windows')
         shell: bash
         run: |
           command -v cmake
@@ -226,22 +436,43 @@ jobs:
           VSWHERE_PATH="$PROGFILES_X86/Microsoft Visual Studio/Installer/vswhere.exe"
           "$VSWHERE_PATH" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
 
+      - name: Install reduced-ops Python dependency
+        if: inputs.required-operators-config-base64 != ''
+        shell: bash
+        run: |
+          PYTHON=python3
+          if ! command -v "$PYTHON" >/dev/null 2>&1; then
+            PYTHON=python
+          fi
+          "$PYTHON" -m pip install --user flatbuffers
+          PYTHON_PATH=$(command -v "$PYTHON")
+          if command -v cygpath >/dev/null 2>&1; then
+            PYTHON_PATH=$(cygpath -m "$PYTHON_PATH")
+          fi
+          echo "PYTHON3_EXECUTABLE=${PYTHON_PATH}" >> "$GITHUB_ENV"
+
       - name: Run build
-        if: >
-          (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) ||
-          (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           CMAKE_SYSROOT: ${{ (matrix.target == 'linux-aarch64-dylib' || matrix.target == 'linux-aarch64-static') && '/opt/linaro-toolchain/aarch64-none-linux-gnu/libc' || '' }}
           CMAKE_FIND_ROOT_PATH: ${{ (matrix.target == 'linux-aarch64-dylib' || matrix.target == 'linux-aarch64-static') && '/opt/linaro-toolchain/aarch64-none-linux-gnu' || '' }}
           TARGET_LINUX: ${{ contains(matrix.target, 'linux') && 'true' || 'false' }}
+          REQUIRED_OPERATORS_CONFIG_PATH: ${{ steps.required-ops.outputs.path }}
         shell: bash
         run: |
-          ./build.sh -r "${{ inputs.onnxruntime-ref }}" -b "${{ inputs.buildtype }}" ${{ matrix.args }}
+          REQUIRED_OPS_ARGS=()
+          if [[ -n "${REQUIRED_OPERATORS_CONFIG_PATH:-}" ]]; then
+            REQUIRED_OPS_ARGS+=(--required-operators-config "$REQUIRED_OPERATORS_CONFIG_PATH")
+            if [[ "${{ inputs.enable-reduced-operator-type-support }}" == "true" ]]; then
+              REQUIRED_OPS_ARGS+=(--enable-reduced-operator-type-support)
+            fi
+          fi
+
+          ./build.sh -r "${{ inputs.onnxruntime-ref }}" -b "${{ inputs.buildtype }}" ${{ matrix.args }} "${REQUIRED_OPS_ARGS[@]}"
 
       # See: https://github.com/microsoft/onnxruntime/issues/24911
       # - name: Remove executable stack flag
-      #   if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && (matrix.target == 'linux-x86_64-dylib' || matrix.target == 'linux-aarch64-dylib' || matrix.target == 'android-aarch64-dylib')
+      #   if: matrix.target == 'linux-x86_64-dylib' || matrix.target == 'linux-aarch64-dylib' || matrix.target == 'android-aarch64-dylib'
       #   run: |
       #     sudo apt-get update
       #     sudo apt-get install -y patchelf
@@ -251,11 +482,7 @@ jobs:
       - name: Fix OpenVINO linux rpath
         # NOTE: The version in the file path below must match the version for the `install-openvino-action` above
         if: >
-          contains(matrix.args, '--openvino') && contains(matrix.target, 'linux') &&
-          (
-            (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) ||
-            (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
-          )
+          contains(matrix.args, '--openvino') && contains(matrix.target, 'linux')
         shell: bash
         run: |
           sudo apt-get update
@@ -269,25 +496,56 @@ jobs:
           LOWER=$(echo "${{ inputs.buildtype }}" | tr '[:upper:]' '[:lower:]')
           echo "string=${LOWER}" >> $GITHUB_OUTPUT
 
+      - name: Write reduced-ops artifact metadata
+        if: inputs.required-operators-config-base64 != ''
+        env:
+          REQUIRED_OPERATORS_CONFIG_PATH: ${{ steps.required-ops.outputs.path }}
+        shell: bash
+        run: |
+          PYTHON=python3
+          if ! command -v "$PYTHON" >/dev/null 2>&1; then
+            PYTHON=python
+          fi
+
+          METADATA_ARGS=()
+          if [[ "${{ inputs.enable-reduced-operator-type-support }}" == "true" ]]; then
+            METADATA_ARGS+=(--enable-reduced-operator-type-support)
+          fi
+
+          "$PYTHON" .github/scripts/validate_required_operators_config.py \
+            "$REQUIRED_OPERATORS_CONFIG_PATH" \
+            --metadata-output build/artifact/onnxruntime/reduced_operators.json \
+            "${METADATA_ARGS[@]}"
+
+      - name: Artifact name
+        id: artifact-name
+        shell: bash
+        env:
+          REQUIRED_OPERATORS_CONFIG_SHA_SHORT: ${{ steps.required-ops.outputs.sha256_short }}
+        run: |
+          ARTIFACT_NAME="ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}"
+          if [[ -n "${REQUIRED_OPERATORS_CONFIG_SHA_SHORT:-}" ]]; then
+            ARTIFACT_NAME="ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-ops-${REQUIRED_OPERATORS_CONFIG_SHA_SHORT}-${{ steps.lower-buildtype.outputs.string }}"
+          fi
+          echo "name=${ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+
       # Create archive based on target OS
       - name: Create artifact (.zip or .tar.gz)
-        if: (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
         run: |
           if [[ "${{ matrix.target }}" == *windows* ]]; then
             pushd build/artifact
-            7z a -tzip "$(dirs +1 -l)/ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}.zip" .
+            7z a -tzip "$(dirs +1 -l)/${{ steps.artifact-name.outputs.name }}.zip" .
             popd
           else
             pushd build/artifact
-            zip -y -r "$(dirs +1 -l)/ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}.zip" .
+            zip -y -r "$(dirs +1 -l)/${{ steps.artifact-name.outputs.name }}.zip" .
             popd
           fi
         shell: bash
 
       - name: Upload artifact
-        if: (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
         uses: actions/upload-artifact@v4
         with:
-          name: ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}
-          path: 'ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}.zip'
+          name: ${{ steps.artifact-name.outputs.name }}
+          path: '${{ steps.artifact-name.outputs.name }}.zip'
           if-no-files-found: error

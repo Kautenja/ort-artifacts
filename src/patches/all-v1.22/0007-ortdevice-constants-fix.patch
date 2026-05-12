@@ -2,22 +2,22 @@ diff --git a/include/onnxruntime/core/framework/ortdevice.h b/include/onnxruntim
 index adade482f..8c63519d7 100644
 --- a/include/onnxruntime/core/framework/ortdevice.h
 +++ b/include/onnxruntime/core/framework/ortdevice.h
-@@ -13,19 +13,19 @@ struct OrtDevice {
-   using DeviceId = int16_t;
-
+@@ -15,8 +15,8 @@ struct OrtDevice {
    // Pre-defined device types.
 -  static const DeviceType CPU = 0;
 -  static const DeviceType GPU = 1;  // Nvidia or AMD
 -  static const DeviceType FPGA = 2;
 -  static const DeviceType NPU = 3;  // Ascend
 -  static const DeviceType DML = 4;
+-
 +  static inline const DeviceType CPU = 0;
 +  static inline const DeviceType GPU = 1;  // Nvidia or AMD
 +  static inline const DeviceType FPGA = 2;
 +  static inline const DeviceType NPU = 3;  // Ascend
 +  static inline const DeviceType DML = 4;
-
++
    struct MemType {
+@@ -23,7 +23,7 @@ struct OrtDevice {
      // Pre-defined memory types.
 -    static const MemoryType DEFAULT = 0;
 -    static const MemoryType CUDA_PINNED = 1;
@@ -30,5 +30,3 @@ index adade482f..8c63519d7 100644
 +    static inline const MemoryType CANN_PINNED = 3;
 +    static inline const MemoryType QNN_HTP_SHARED = 4;
    };
-
-   constexpr OrtDevice(DeviceType device_type_, MemoryType memory_type_, DeviceId device_id_)

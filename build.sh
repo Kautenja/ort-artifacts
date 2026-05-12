@@ -32,6 +32,8 @@ DRY_RUN="OFF"
 CLEAN="OFF"
 CLEAN_ALL="OFF"
 BUILD_VERBOSE="${ORT_BUILD_VERBOSE:-OFF}"
+REQUIRED_OPERATORS_CONFIG=""
+ENABLE_REDUCED_OPERATOR_TYPE_SUPPORT="OFF"
 
 # argument parsing
 while [[ $# -gt 0 ]]; do
@@ -112,6 +114,14 @@ while [[ $# -gt 0 ]]; do
 		USE_NNAPI="ON"
 		shift
 		;;
+	--required-operators-config)
+		REQUIRED_OPERATORS_CONFIG="$2"
+		shift 2
+		;;
+	--enable-reduced-operator-type-support)
+		ENABLE_REDUCED_OPERATOR_TYPE_SUPPORT="ON"
+		shift
+		;;
 	--dry-run)
 		DRY_RUN="ON"
 		shift
@@ -165,6 +175,10 @@ while [[ $# -gt 0 ]]; do
 		echo "      --webgpu                 Enable WebGPU EP"
 		echo "      --openvino               Enable OpenVINO EP"
 		echo "      --nnapi                  Enable NNAPI EP"
+		echo "      --required-operators-config <path>"
+		echo "                                Enable a reduced-operator build from an ONNX Runtime required operators config"
+		echo "      --enable-reduced-operator-type-support"
+		echo "                                Enable ONNX Runtime reduced operator type support; requires --required-operators-config"
 		echo "      --dry-run                Print CMake command without executing"
 		echo "      --build-verbose          Show verbose compiler/build commands"
 		echo "      --no-build-verbose       Disable verbose compiler/build commands"
@@ -251,6 +265,28 @@ if [[ "$CLEAN" == "ON" || "$CLEAN_ALL" == "ON" ]]; then
 	exit 0
 fi
 
+if [[ "$ENABLE_REDUCED_OPERATOR_TYPE_SUPPORT" == "ON" && -z "$REQUIRED_OPERATORS_CONFIG" ]]; then
+	echo -e "${RED}Error: --enable-reduced-operator-type-support requires --required-operators-config <path>${NC}" >&2
+	exit 1
+fi
+
+if [[ -n "$REQUIRED_OPERATORS_CONFIG" ]]; then
+	if [[ ! -f "$REQUIRED_OPERATORS_CONFIG" ]]; then
+		echo -e "${RED}Error: required operators config does not exist: $REQUIRED_OPERATORS_CONFIG${NC}" >&2
+		exit 1
+	fi
+	if [[ ! -s "$REQUIRED_OPERATORS_CONFIG" ]]; then
+		echo -e "${RED}Error: required operators config is empty: $REQUIRED_OPERATORS_CONFIG${NC}" >&2
+		exit 1
+	fi
+
+	REQUIRED_OPERATORS_CONFIG_DIR=$(cd "$(dirname "$REQUIRED_OPERATORS_CONFIG")" && pwd -P)
+	REQUIRED_OPERATORS_CONFIG="${REQUIRED_OPERATORS_CONFIG_DIR}/$(basename "$REQUIRED_OPERATORS_CONFIG")"
+	if [[ "$IS_WINDOWS" == "true" ]] && command -v cygpath >/dev/null 2>&1; then
+		REQUIRED_OPERATORS_CONFIG=$(cygpath -m "$REQUIRED_OPERATORS_CONFIG")
+	fi
+fi
+
 if [[ "$ANDROID" == "ON" ]]; then
 	case "$ANDROID_ABI" in
 	arm64-v8a)
@@ -313,6 +349,16 @@ CMAKE_ARGS=(
 	"-DUSE_OPENVINO=$USE_OPENVINO"
 	"-DUSE_NNAPI=$USE_NNAPI"
 )
+
+if [[ -n "$REQUIRED_OPERATORS_CONFIG" ]]; then
+	CMAKE_ARGS+=(
+		"-DREQUIRED_OPERATORS_CONFIG=$REQUIRED_OPERATORS_CONFIG"
+		"-DENABLE_REDUCED_OPERATOR_TYPE_SUPPORT=$ENABLE_REDUCED_OPERATOR_TYPE_SUPPORT"
+	)
+	if [[ -n "${PYTHON3_EXECUTABLE:-}" ]]; then
+		CMAKE_ARGS+=("-DPython3_EXECUTABLE=$PYTHON3_EXECUTABLE")
+	fi
+fi
 
 if [[ ${#GENERATOR_ARGS[@]} -gt 0 ]]; then
 	CMAKE_ARGS+=("${GENERATOR_ARGS[@]}")

@@ -36,6 +36,26 @@ option(USE_NNAPI "Enable NNAPI EP" OFF)
 
 # Build optimization options
 option(FORCE_UPDATE "Force update of ONNX Runtime repository (re-clone)" OFF)
+set(REQUIRED_OPERATORS_CONFIG "" CACHE FILEPATH "Path to an ONNX Runtime required operators config for reduced-operator builds")
+option(ENABLE_REDUCED_OPERATOR_TYPE_SUPPORT "Enable ONNX Runtime reduced operator type support" OFF)
+
+if(ENABLE_REDUCED_OPERATOR_TYPE_SUPPORT AND NOT REQUIRED_OPERATORS_CONFIG)
+    message(FATAL_ERROR "ENABLE_REDUCED_OPERATOR_TYPE_SUPPORT requires REQUIRED_OPERATORS_CONFIG")
+endif()
+
+if(REQUIRED_OPERATORS_CONFIG)
+    get_filename_component(REQUIRED_OPERATORS_CONFIG "${REQUIRED_OPERATORS_CONFIG}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+    if(NOT EXISTS "${REQUIRED_OPERATORS_CONFIG}")
+        message(FATAL_ERROR "Required operators config does not exist: ${REQUIRED_OPERATORS_CONFIG}")
+    endif()
+    file(SIZE "${REQUIRED_OPERATORS_CONFIG}" REQUIRED_OPERATORS_CONFIG_SIZE)
+    if(REQUIRED_OPERATORS_CONFIG_SIZE EQUAL 0)
+        message(FATAL_ERROR "Required operators config is empty: ${REQUIRED_OPERATORS_CONFIG}")
+    endif()
+    set(REQUIRED_OPERATORS_CONFIG "${REQUIRED_OPERATORS_CONFIG}" CACHE FILEPATH "Path to an ONNX Runtime required operators config for reduced-operator builds" FORCE)
+    message(STATUS "Reduced operators config: ${REQUIRED_OPERATORS_CONFIG}")
+    message(STATUS "Reduced operator type support: ${ENABLE_REDUCED_OPERATOR_TYPE_SUPPORT}")
+endif()
 
 # Constants from build.ts
 set(MACOS_DEPLOYMENT_TARGET "13.3")
@@ -123,6 +143,33 @@ else()
     set(STATIC_BUILD_COMMAND "")
 endif()
 
+set(REDUCED_OPS_COMMAND "")
+set(ORT_BUILD_REDUCED_OPS_ARGS "")
+if(REQUIRED_OPERATORS_CONFIG)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+    set(REDUCED_OPS_TYPE_REDUCTION_ARG "")
+    if(ENABLE_REDUCED_OPERATOR_TYPE_SUPPORT)
+        set(REDUCED_OPS_TYPE_REDUCTION_ARG --enable_type_reduction)
+        list(APPEND ORT_BUILD_REDUCED_OPS_ARGS --enable_reduced_operator_type_support)
+    endif()
+
+    list(APPEND REDUCED_OPS_COMMAND
+        COMMAND ${CMAKE_COMMAND} -E echo "Generating ONNX Runtime reduced operator registrations"
+        COMMAND ${Python3_EXECUTABLE} -c "import importlib.util, sys; sys.exit(0) if importlib.util.find_spec('flatbuffers') else sys.exit('Python package flatbuffers is required for reduced-operator builds')"
+        COMMAND ${Python3_EXECUTABLE}
+            <SOURCE_DIR>/tools/ci_build/reduce_op_kernels.py
+            ${REQUIRED_OPERATORS_CONFIG}
+            --cmake_build_dir <BINARY_DIR>
+            --is_extended_minimal_build_or_higher
+            ${REDUCED_OPS_TYPE_REDUCTION_ARG}
+    )
+
+    list(APPEND ORT_BUILD_REDUCED_OPS_ARGS
+        --include_ops_by_config ${REQUIRED_OPERATORS_CONFIG}
+    )
+endif()
+
 # Build CMAKE_ARGS based on options - basic flags across all targets
 string(REPLACE ";" "<|>" BUILD_CONFIGS "${CMAKE_CONFIGURATION_TYPES}")
 set(CMAKE_ARGS
@@ -135,6 +182,10 @@ set(CMAKE_ARGS
     -Donnxruntime_BUILD_UNIT_TESTS=OFF
     -Donnxruntime_ENABLE_PYTHON=OFF
 )
+
+if(REQUIRED_OPERATORS_CONFIG)
+    list(APPEND CMAKE_ARGS -Donnxruntime_REDUCED_OPS_BUILD=ON)
+endif()
 
 if(TARGET_ARCH STREQUAL "aarch64")
     list(APPEND CMAKE_ARGS -Donnxruntime_USE_KLEIDIAI=ON)
@@ -418,7 +469,7 @@ if(WASM)
         GIT_SHALLOW ON
         PATCH_COMMAND ${PATCH_COMMAND}
         CONFIGURE_COMMAND ""
-        BUILD_COMMAND bash ./build.sh --config ${CMAKE_BUILD_TYPE} --build_wasm_static_lib --enable_wasm_simd --enable_wasm_threads --skip_tests --disable_wasm_exception_catching --disable_rtti --parallel ${WEBGPU_ARG} --emsdk_version ${EMSDK_VERSION}
+        BUILD_COMMAND bash ./build.sh --config ${CMAKE_BUILD_TYPE} --build_wasm_static_lib --enable_wasm_simd --enable_wasm_threads --skip_tests --disable_wasm_exception_catching --disable_rtti --parallel ${WEBGPU_ARG} --emsdk_version ${EMSDK_VERSION} ${ORT_BUILD_REDUCED_OPS_ARGS}
         BUILD_IN_SOURCE ON
         INSTALL_COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/artifact/onnxruntime/lib
                      && ${CMAKE_COMMAND} -E copy <SOURCE_DIR>/build/Linux/${CMAKE_BUILD_TYPE}/libonnxruntime_webassembly.a ${CMAKE_CURRENT_BINARY_DIR}/artifact/onnxruntime/lib/libonnxruntime.a
@@ -430,7 +481,7 @@ else()
         GIT_TAG ${REFERENCE}
         GIT_SUBMODULES_RECURSE ON
         GIT_SHALLOW ON
-        PATCH_COMMAND ${PATCH_COMMAND} ${STATIC_BUILD_COMMAND}
+        PATCH_COMMAND ${PATCH_COMMAND} ${STATIC_BUILD_COMMAND} ${REDUCED_OPS_COMMAND}
         SOURCE_SUBDIR ${SOURCE_SUBDIR}
         LIST_SEPARATOR "<|>"
         CMAKE_ARGS ${CMAKE_ARGS}

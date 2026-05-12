@@ -3,12 +3,15 @@
 
 import hashlib
 import json
+import re
 import zipfile
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 # Constants
 LIBRARY_DIRECTORIES = ["onnxruntime/bin", "onnxruntime/lib"]
+REDUCED_OPS_METADATA_FILE = "onnxruntime/reduced_operators.json"
+OPS_MARKER_RE = re.compile(r"(?:^|-)ops-([0-9a-f]{12})(?:-|$)", re.IGNORECASE)
 
 ONNXRUNTIME_LIBRARY_NAMES = {
     "onnxruntime_sx.dll",
@@ -87,6 +90,46 @@ def get_extra_files(files: Set[str], ort_library: str) -> List[str]:
     return sorted(extra)
 
 
+def get_reduced_ops_metadata(archive_path: Path, files: List[str]) -> Dict:
+    """Get safe reduced-operator build metadata from an archive."""
+    if REDUCED_OPS_METADATA_FILE in files:
+        try:
+            with zipfile.ZipFile(archive_path, "r") as zf:
+                metadata = json.loads(zf.read(REDUCED_OPS_METADATA_FILE).decode("utf-8"))
+        except (json.JSONDecodeError, KeyError, OSError, UnicodeDecodeError, zipfile.BadZipFile) as e:
+            print(f"Warning: Could not read reduced-ops metadata from {archive_path}: {e}")
+            return {"reduced_ops": True}
+
+        config_sha256 = metadata.get("required_operators_config_sha256")
+        return {
+            "reduced_ops": bool(metadata.get("reduced_ops", True)),
+            "required_operators_config_sha256": config_sha256,
+            "required_operators_config_sha256_short": metadata.get(
+                "required_operators_config_sha256_short",
+                config_sha256[:12] if config_sha256 else None,
+            ),
+            "required_operators_config_bytes": metadata.get("required_operators_config_bytes"),
+            "required_operator_count": metadata.get("required_operator_count"),
+            "required_operator_line_count": metadata.get("required_operator_line_count"),
+            "required_operator_config_has_type_reduction": metadata.get(
+                "required_operator_config_has_type_reduction"
+            ),
+            "required_operator_config_has_global_type_filter": metadata.get(
+                "required_operator_config_has_global_type_filter"
+            ),
+            "enable_reduced_operator_type_support": metadata.get("enable_reduced_operator_type_support"),
+        }
+
+    marker_match = OPS_MARKER_RE.search(archive_path.stem)
+    if marker_match:
+        return {
+            "reduced_ops": True,
+            "required_operators_config_sha256_short": marker_match.group(1).lower(),
+        }
+
+    return {"reduced_ops": False}
+
+
 def process_artifact(archive_path: Path) -> Optional[Dict]:
     """Process a single artifact archive and extract metadata."""
     sha256 = calculate_sha256(archive_path)
@@ -114,12 +157,14 @@ def process_artifact(archive_path: Path) -> Optional[Dict]:
 
     extra_files = get_extra_files(lib_files, ort_library)
 
-    return {
+    metadata = {
         "archive": f"{archive_path.stem}.zip",
         "sha256": sha256,
         "ort_lib": ort_library,
         "extra_files": extra_files,
     }
+    metadata.update(get_reduced_ops_metadata(archive_path, files))
+    return metadata
 
 
 def strip_version_prefix(artifact_name: str) -> str:

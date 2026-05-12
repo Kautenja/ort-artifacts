@@ -12,7 +12,6 @@ __pycache__/
 /openvino_tests
 
 # Ralph Wiggum generated output
-/PROMPT_build.md
-/PROMPT_plan.md
+/PROMPT_*.md
 /logs/*
 !/logs/.gitkeep
