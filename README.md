@@ -52,6 +52,8 @@ Default providers below assume the provider checkboxes are left enabled.
 
 Windows static artifacts currently enable only the dynamic CRT target. Static CRT and Windows ARM64 variants are deferred to separate specs so runner, toolchain, and downstream-linking behavior can be validated independently.
 
+Windows artifacts package `onnxruntime/lib/onnxruntime.lib`, public headers under `onnxruntime/include`, and a minimal CMake package under `onnxruntime/lib/cmake/onnxruntime`. DirectML-enabled builds keep the required `DirectML.dll` runtime under `onnxruntime/bin`; Release packaging removes `.pdb` debug symbols from the main consumer archive, while Debug packaging may retain them for diagnostics.
+
 Android artifacts are native static archives for consuming projects. They do not package ONNX Runtime Java bindings, `onnxruntime4j`, or an AAR.
 
 Universal Apple artifacts preserve the normal `onnxruntime` package layout and replace only the primary static archive under `onnxruntime/lib`. The packaging step compares header trees and reduced-operator metadata before choosing one source artifact as the layout template. Reduced-operator universal artifacts keep the same `ops-<12-hex-chars>` marker as their source slices.
@@ -141,7 +143,7 @@ Run these lightweight checks before committing maintenance or build-orchestratio
 ```bash
 ./build.sh --dry-run
 bash -n build.sh scripts/ralph-loop.sh scripts/ralph-loop-codex.sh scripts/ralph-loop-gemini.sh scripts/ralph-loop-copilot.sh scripts/lib/spec_queue.sh scripts/lib/nr_of_tries.sh
-python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/validate_required_operators_config.py .github/scripts/resolve_build_targets.py .github/scripts/create_apple_universal_static_artifact.py .github/scripts/create_apple_xcframework_artifact.py
+python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/validate_required_operators_config.py .github/scripts/resolve_build_targets.py .github/scripts/create_apple_universal_static_artifact.py .github/scripts/create_apple_xcframework_artifact.py .github/scripts/slim_windows_artifact.py
 git diff --check
 ```
 

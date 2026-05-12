@@ -137,7 +137,7 @@ list(APPEND PATCH_COMMAND
 if(STATIC_BUILD)
     set(STATIC_BUILD_COMMAND
         COMMAND ${CMAKE_COMMAND} -E make_directory <SOURCE_DIR>/static-build
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/static-build/CMakeLists.txt <SOURCE_DIR>/static-build/CMakeLists.txt
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/src/static-build <SOURCE_DIR>/static-build
     )
 else()
     set(STATIC_BUILD_COMMAND "")

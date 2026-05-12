@@ -343,6 +343,22 @@ jobs:
             --metadata-output build/artifact/onnxruntime/reduced_operators.json \
             "${METADATA_ARGS[@]}"
 
+      - name: Validate and slim Windows artifact staging
+        if: contains(matrix.target, 'windows')
+        shell: bash
+        run: |
+          PYTHON=python3
+          if ! command -v "$PYTHON" >/dev/null 2>&1; then
+            PYTHON=python
+          fi
+
+          SLIM_ARGS=(--artifact-root build/artifact --buildtype "${{ inputs.buildtype }}")
+          if [[ "${{ matrix.args }}" == *"--directml"* ]]; then
+            SLIM_ARGS+=(--expect-directml)
+          fi
+
+          "$PYTHON" .github/scripts/slim_windows_artifact.py "${SLIM_ARGS[@]}"
+
       - name: Artifact name
         id: artifact-name
         shell: bash
