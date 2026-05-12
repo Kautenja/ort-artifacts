@@ -19,4 +19,26 @@ if(CVTFP16AVX_INDEX GREATER_EQUAL 0)
     endif()
 endif()
 
+function(verify_openvino_weak_singleton_header HEADER_PATH)
+    if(NOT EXISTS "${HEADER_PATH}")
+        return()
+    endif()
+
+    file(READ "${HEADER_PATH}" HEADER_CONTENT)
+    string(FIND "${HEADER_CONTENT}" "ORT_DISALLOW_COPY_ASSIGNMENT_AND_MOVE" DISALLOW_MACRO_INDEX)
+    if(DISALLOW_MACRO_INDEX LESS 0)
+        return()
+    endif()
+
+    string(FIND "${HEADER_CONTENT}" "#include \"core/common/common.h\"" COMMON_INCLUDE_INDEX)
+    if(COMMON_INCLUDE_INDEX LESS 0 OR COMMON_INCLUDE_INDEX GREATER DISALLOW_MACRO_INDEX)
+        message(FATAL_ERROR
+            "OpenVINO WeakSingleton header uses ORT_DISALLOW_COPY_ASSIGNMENT_AND_MOVE "
+            "without including core/common/common.h first: ${HEADER_PATH}")
+    endif()
+endfunction()
+
+verify_openvino_weak_singleton_header("${ORT_SOURCE_DIR}/onnxruntime/core/providers/openvino/ov_interface.h")
+verify_openvino_weak_singleton_header("${ORT_SOURCE_DIR}/onnxruntime/core/providers/openvino/weak_singleton.h")
+
 message(STATUS "Verified ONNX Runtime patch guards")
