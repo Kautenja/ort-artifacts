@@ -6,31 +6,71 @@ on:
         type: string
         description: "ONNX Runtime repository reference, e.g., 'v1.22.2' or 'main'"
         default: "v1.22.2"
-      target-preset:
-        type: choice
-        description: "Select a predefined target"
+      target-all:
+        type: boolean
+        description: "All active targets"
         required: false
-        default: "all"
-        options:
-          - "all"
-          - linux-aarch64-static
-          - linux-x86_64-static
-          - macos-aarch64-static
-          - macos-x86_64-static
-          - windows-md-x86_64-static
-          # - windows-mt-x86_64-static
-          # - emscripten-wasm32
-          - ios-aarch64-static
-          - ios-simulator-aarch64-static
-          - ios-simulator-x86_64-static
-          - android-arm64-v8a-static
-          - android-armeabi-v7a-static
-          - android-x86_64-static
-          - android-x86-static
-      target-custom:
-        type: string
-        description: "Custom target filter (overrides preset if specified, supports substring matching)"
+        default: true
+      linux-aarch64-static:
+        type: boolean
+        description: "Linux aarch64 static"
         required: false
+        default: false
+      linux-x86_64-static:
+        type: boolean
+        description: "Linux x86_64 static"
+        required: false
+        default: false
+      macos-aarch64-static:
+        type: boolean
+        description: "macOS aarch64 static"
+        required: false
+        default: false
+      macos-x86_64-static:
+        type: boolean
+        description: "macOS x86_64 static"
+        required: false
+        default: false
+      windows-md-x86_64-static:
+        type: boolean
+        description: "Windows x86_64 static, dynamic CRT"
+        required: false
+        default: false
+      ios-aarch64-static:
+        type: boolean
+        description: "iOS device aarch64 static"
+        required: false
+        default: false
+      ios-simulator-aarch64-static:
+        type: boolean
+        description: "iOS simulator aarch64 static"
+        required: false
+        default: false
+      ios-simulator-x86_64-static:
+        type: boolean
+        description: "iOS simulator x86_64 static"
+        required: false
+        default: false
+      android-arm64-v8a-static:
+        type: boolean
+        description: "Android arm64-v8a static"
+        required: false
+        default: false
+      android-armeabi-v7a-static:
+        type: boolean
+        description: "Android armeabi-v7a static"
+        required: false
+        default: false
+      android-x86_64-static:
+        type: boolean
+        description: "Android x86_64 static"
+        required: false
+        default: false
+      android-x86-static:
+        type: boolean
+        description: "Android x86 static"
+        required: false
+        default: false
       buildtype:
         type: choice
         required: true
@@ -56,31 +96,83 @@ on:
         default: false
 
 jobs:
+  select-targets:
+    name: Select build targets
+    runs-on: ubuntu-22.04
+    outputs:
+      targets: ${{ steps.targets.outputs.targets }}
+    steps:
+      - name: Build exact target list
+        id: targets
+        shell: bash
+        env:
+          TARGET_ALL: ${{ inputs['target-all'] }}
+          LINUX_AARCH64_STATIC: ${{ inputs['linux-aarch64-static'] }}
+          LINUX_X86_64_STATIC: ${{ inputs['linux-x86_64-static'] }}
+          MACOS_AARCH64_STATIC: ${{ inputs['macos-aarch64-static'] }}
+          MACOS_X86_64_STATIC: ${{ inputs['macos-x86_64-static'] }}
+          WINDOWS_MD_X86_64_STATIC: ${{ inputs['windows-md-x86_64-static'] }}
+          IOS_AARCH64_STATIC: ${{ inputs['ios-aarch64-static'] }}
+          IOS_SIMULATOR_AARCH64_STATIC: ${{ inputs['ios-simulator-aarch64-static'] }}
+          IOS_SIMULATOR_X86_64_STATIC: ${{ inputs['ios-simulator-x86_64-static'] }}
+          ANDROID_ARM64_V8A_STATIC: ${{ inputs['android-arm64-v8a-static'] }}
+          ANDROID_ARMEABI_V7A_STATIC: ${{ inputs['android-armeabi-v7a-static'] }}
+          ANDROID_X86_64_STATIC: ${{ inputs['android-x86_64-static'] }}
+          ANDROID_X86_STATIC: ${{ inputs['android-x86-static'] }}
+        run: |
+          if [[ "$TARGET_ALL" == "true" ]]; then
+            echo "targets=all" >> "$GITHUB_OUTPUT"
+            echo "Selected targets: all active targets"
+            exit 0
+          fi
+
+          targets=()
+          [[ "$LINUX_AARCH64_STATIC" == "true" ]] && targets+=(linux-aarch64-static)
+          [[ "$LINUX_X86_64_STATIC" == "true" ]] && targets+=(linux-x86_64-static)
+          [[ "$MACOS_AARCH64_STATIC" == "true" ]] && targets+=(macos-aarch64-static)
+          [[ "$MACOS_X86_64_STATIC" == "true" ]] && targets+=(macos-x86_64-static)
+          [[ "$WINDOWS_MD_X86_64_STATIC" == "true" ]] && targets+=(windows-md-x86_64-static)
+          [[ "$IOS_AARCH64_STATIC" == "true" ]] && targets+=(ios-aarch64-static)
+          [[ "$IOS_SIMULATOR_AARCH64_STATIC" == "true" ]] && targets+=(ios-simulator-aarch64-static)
+          [[ "$IOS_SIMULATOR_X86_64_STATIC" == "true" ]] && targets+=(ios-simulator-x86_64-static)
+          [[ "$ANDROID_ARM64_V8A_STATIC" == "true" ]] && targets+=(android-arm64-v8a-static)
+          [[ "$ANDROID_ARMEABI_V7A_STATIC" == "true" ]] && targets+=(android-armeabi-v7a-static)
+          [[ "$ANDROID_X86_64_STATIC" == "true" ]] && targets+=(android-x86_64-static)
+          [[ "$ANDROID_X86_STATIC" == "true" ]] && targets+=(android-x86-static)
+
+          target_list=$(IFS=,; echo "${targets[*]}")
+          echo "targets=${target_list}" >> "$GITHUB_OUTPUT"
+          if [[ -n "$target_list" ]]; then
+            echo "Selected targets: ${target_list}"
+          else
+            echo "::notice::No target checkbox was selected; the build workflow will fail before platform setup."
+          fi
+
   build-debug:
     if: inputs.buildtype == 'Both' || inputs.buildtype == 'Debug'
+    needs: select-targets
     uses: ./.github/workflows/_build.yml
     with:
       onnxruntime-ref: ${{ inputs.onnxruntime-ref }}
       buildtype: Debug
-      target-preset: ${{ inputs.target-preset }}
-      target-custom: ${{ inputs.target-custom }}
+      targets: ${{ needs.select-targets.outputs.targets }}
       required-operators-config-base64: ${{ inputs.required-operators-config-base64 }}
       enable-reduced-operator-type-support: ${{ inputs.enable-reduced-operator-type-support }}
 
   build-release:
     if: inputs.buildtype == 'Both' || inputs.buildtype == 'Release'
+    needs: select-targets
     uses: ./.github/workflows/_build.yml
     with:
       onnxruntime-ref: ${{ inputs.onnxruntime-ref }}
       buildtype: Release
-      target-preset: ${{ inputs.target-preset }}
-      target-custom: ${{ inputs.target-custom }}
+      targets: ${{ needs.select-targets.outputs.targets }}
       required-operators-config-base64: ${{ inputs.required-operators-config-base64 }}
       enable-reduced-operator-type-support: ${{ inputs.enable-reduced-operator-type-support }}
 
   publish:
     if: inputs.publish && always() && !cancelled() && !contains(needs.*.result, 'failure')
-    needs: [build-debug, build-release]
+    needs: [select-targets, build-debug, build-release]
     uses: ./.github/workflows/_publish.yml
     with:
       onnxruntime-ref: ${{ inputs.onnxruntime-ref }}
