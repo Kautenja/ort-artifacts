@@ -31,6 +31,11 @@ on:
         description: "macOS x86_64 static"
         required: false
         default: false
+      macos-universal-static:
+        type: boolean
+        description: "macOS universal static, derived from aarch64 and x86_64"
+        required: false
+        default: false
       windows-md-x86_64-static:
         type: boolean
         description: "Windows x86_64 static, dynamic CRT"
@@ -49,6 +54,11 @@ on:
       ios-simulator-x86_64-static:
         type: boolean
         description: "iOS simulator x86_64 static"
+        required: false
+        default: false
+      ios-simulator-universal-static:
+        type: boolean
+        description: "iOS simulator universal static, derived from aarch64 and x86_64"
         required: false
         default: false
       android-arm64-v8a-static:
@@ -136,10 +146,12 @@ jobs:
           LINUX_X86_64_STATIC: ${{ inputs['linux-x86_64-static'] }}
           MACOS_AARCH64_STATIC: ${{ inputs['macos-aarch64-static'] }}
           MACOS_X86_64_STATIC: ${{ inputs['macos-x86_64-static'] }}
+          MACOS_UNIVERSAL_STATIC: ${{ inputs['macos-universal-static'] }}
           WINDOWS_MD_X86_64_STATIC: ${{ inputs['windows-md-x86_64-static'] }}
           IOS_AARCH64_STATIC: ${{ inputs['ios-aarch64-static'] }}
           IOS_SIMULATOR_AARCH64_STATIC: ${{ inputs['ios-simulator-aarch64-static'] }}
           IOS_SIMULATOR_X86_64_STATIC: ${{ inputs['ios-simulator-x86_64-static'] }}
+          IOS_SIMULATOR_UNIVERSAL_STATIC: ${{ inputs['ios-simulator-universal-static'] }}
           ANDROID_ARM64_V8A_STATIC: ${{ inputs['android-arm64-v8a-static'] }}
           ANDROID_ARMEABI_V7A_STATIC: ${{ inputs['android-armeabi-v7a-static'] }}
           ANDROID_X86_64_STATIC: ${{ inputs['android-x86_64-static'] }}
@@ -156,10 +168,12 @@ jobs:
           [[ "$LINUX_X86_64_STATIC" == "true" ]] && targets+=(linux-x86_64-static)
           [[ "$MACOS_AARCH64_STATIC" == "true" ]] && targets+=(macos-aarch64-static)
           [[ "$MACOS_X86_64_STATIC" == "true" ]] && targets+=(macos-x86_64-static)
+          [[ "$MACOS_UNIVERSAL_STATIC" == "true" ]] && targets+=(macos-universal-static)
           [[ "$WINDOWS_MD_X86_64_STATIC" == "true" ]] && targets+=(windows-md-x86_64-static)
           [[ "$IOS_AARCH64_STATIC" == "true" ]] && targets+=(ios-aarch64-static)
           [[ "$IOS_SIMULATOR_AARCH64_STATIC" == "true" ]] && targets+=(ios-simulator-aarch64-static)
           [[ "$IOS_SIMULATOR_X86_64_STATIC" == "true" ]] && targets+=(ios-simulator-x86_64-static)
+          [[ "$IOS_SIMULATOR_UNIVERSAL_STATIC" == "true" ]] && targets+=(ios-simulator-universal-static)
           [[ "$ANDROID_ARM64_V8A_STATIC" == "true" ]] && targets+=(android-arm64-v8a-static)
           [[ "$ANDROID_ARMEABI_V7A_STATIC" == "true" ]] && targets+=(android-armeabi-v7a-static)
           [[ "$ANDROID_X86_64_STATIC" == "true" ]] && targets+=(android-x86_64-static)

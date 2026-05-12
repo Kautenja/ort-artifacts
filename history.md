@@ -5,3 +5,4 @@
 2026-05-12: Completed checkbox target workflow dispatch, replacing preset/custom target inputs with exact target checkboxes, dynamic matrix selection, empty-selection validation, and preserved artifact naming.
 2026-05-12: Completed execution-provider workflow checkboxes for XNNPACK, OpenVINO, DirectML, CoreML, and NNAPI, with target-compatible argument filtering and provider setup gating.
 2026-05-12: Completed project polish and maintenance cleanup, refreshing README workflow guidance, narrowing generated prompt ignores, clearing local generated runtime files, and documenting cleanup inventory decisions.
+2026-05-12: Completed Apple universal static artifact packaging for macOS and iOS simulator, including derived target selection, lipo-based archive creation, metadata validation, manifest support, and README guidance.

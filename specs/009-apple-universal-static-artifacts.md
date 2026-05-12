@@ -1,5 +1,7 @@
 # Specification: Apple Universal Static Artifacts
 
+**Status**: COMPLETE
+
 ## Feature: Derived Universal macOS and iOS Simulator Static Archives
 
 ### Overview
@@ -22,41 +24,41 @@ This spec intentionally stops at universal static archives. The final XCFramewor
 The CD workflow must be able to produce universal artifacts for macOS and iOS simulator.
 
 **Acceptance Criteria:**
-- [ ] Add support for an `ios-simulator-universal-static` derived artifact built from `ios-simulator-aarch64-static` and `ios-simulator-x86_64-static`.
-- [ ] Add support for a `macos-universal-static` derived artifact built from `macos-aarch64-static` and `macos-x86_64-static`.
-- [ ] The universal artifacts are produced with `lipo -create` from the two matching `libonnxruntime.a` inputs, not by recompiling ONNX Runtime a third time.
-- [ ] The generated artifact names follow the existing release naming pattern, for example `ort-<onnxruntime-ref>-ios-simulator-universal-static-<buildtype>` and `ort-<onnxruntime-ref>-macos-universal-static-<buildtype>`.
-- [ ] Reduced-operator builds preserve the existing `ops-<12-hex-chars>` artifact-name marker for universal outputs.
+- [x] Add support for an `ios-simulator-universal-static` derived artifact built from `ios-simulator-aarch64-static` and `ios-simulator-x86_64-static`.
+- [x] Add support for a `macos-universal-static` derived artifact built from `macos-aarch64-static` and `macos-x86_64-static`.
+- [x] The universal artifacts are produced with `lipo -create` from the two matching `libonnxruntime.a` inputs, not by recompiling ONNX Runtime a third time.
+- [x] The generated artifact names follow the existing release naming pattern, for example `ort-<onnxruntime-ref>-ios-simulator-universal-static-<buildtype>` and `ort-<onnxruntime-ref>-macos-universal-static-<buildtype>`.
+- [x] Reduced-operator builds preserve the existing `ops-<12-hex-chars>` artifact-name marker for universal outputs.
 
 ### FR-2: Target Selection and Dependency Resolution
 Universal artifacts must integrate cleanly with the current checkbox target workflow.
 
 **Acceptance Criteria:**
-- [ ] Manual workflow inputs include clear checkboxes for `ios-simulator-universal-static` and `macos-universal-static`, or an equivalent documented mechanism that is visible in the CD workflow UI.
-- [ ] `target-all=true` produces the universal Apple artifacts in addition to the existing architecture-specific Apple artifacts.
-- [ ] Selecting a universal artifact explicitly schedules or requires the two source architecture builds needed to create it.
-- [ ] If a universal artifact cannot be produced because a required source slice failed or was not selected, the workflow fails early with a clear error message instead of uploading a partial universal artifact.
-- [ ] Selecting only an individual architecture target continues to build only that architecture unless the user also requests the universal derived artifact.
+- [x] Manual workflow inputs include clear checkboxes for `ios-simulator-universal-static` and `macos-universal-static`, or an equivalent documented mechanism that is visible in the CD workflow UI.
+- [x] `target-all=true` produces the universal Apple artifacts in addition to the existing architecture-specific Apple artifacts.
+- [x] Selecting a universal artifact explicitly schedules or requires the two source architecture builds needed to create it.
+- [x] If a universal artifact cannot be produced because a required source slice failed or was not selected, the workflow fails early with a clear error message instead of uploading a partial universal artifact.
+- [x] Selecting only an individual architecture target continues to build only that architecture unless the user also requests the universal derived artifact.
 
 ### FR-3: Artifact Contents and Metadata
 Universal artifacts must look like normal ONNX Runtime artifacts except for the universal `libonnxruntime.a`.
 
 **Acceptance Criteria:**
-- [ ] The universal artifact contains the same top-level `onnxruntime` layout as existing Apple static artifacts.
-- [ ] `onnxruntime/lib/libonnxruntime.a` is replaced by the universal library and contains both expected architectures according to `lipo -info`.
-- [ ] Public headers are included exactly once and are taken from a validated matching source artifact.
-- [ ] Header trees from the two source artifacts are compared or otherwise verified before one is chosen for the universal artifact.
-- [ ] CMake/package metadata, if present, is preserved or deliberately adjusted so downstream consumers are not pointed at an architecture-specific library name or path.
-- [ ] `reduced_operators.json`, if present, is preserved only when both source slices have matching reduced-operator metadata.
+- [x] The universal artifact contains the same top-level `onnxruntime` layout as existing Apple static artifacts.
+- [x] `onnxruntime/lib/libonnxruntime.a` is replaced by the universal library and contains both expected architectures according to `lipo -info`.
+- [x] Public headers are included exactly once and are taken from a validated matching source artifact.
+- [x] Header trees from the two source artifacts are compared or otherwise verified before one is chosen for the universal artifact.
+- [x] CMake/package metadata, if present, is preserved or deliberately adjusted so downstream consumers are not pointed at an architecture-specific library name or path.
+- [x] `reduced_operators.json`, if present, is preserved only when both source slices have matching reduced-operator metadata.
 
 ### FR-4: Manifest and Publishing Support
 Publishing must treat universal artifacts as first-class release artifacts.
 
 **Acceptance Criteria:**
-- [ ] `.github/scripts/generate_manifest.py` recognizes the universal artifact archives and records correct SHA256, artifact name, library directory, and primary library path.
-- [ ] The publish workflow uploads universal artifacts to draft releases when `publish=true`.
-- [ ] Universal artifacts are not confused with the architecture-specific Apple artifacts in the manifest.
-- [ ] Existing non-Apple artifacts and existing Apple architecture-specific artifacts retain their current names and behavior.
+- [x] `.github/scripts/generate_manifest.py` recognizes the universal artifact archives and records correct SHA256, artifact name, library directory, and primary library path.
+- [x] The publish workflow uploads universal artifacts to draft releases when `publish=true`.
+- [x] Universal artifacts are not confused with the architecture-specific Apple artifacts in the manifest.
+- [x] Existing non-Apple artifacts and existing Apple architecture-specific artifacts retain their current names and behavior.
 
 ---
 
@@ -101,37 +103,37 @@ Publishing must treat universal artifacts as first-class release artifacts.
 ## Completion Signal
 
 ### Implementation Checklist
-- [ ] Add target selection support for macOS and iOS simulator universal derived artifacts.
-- [ ] Implement universal artifact creation from existing per-architecture artifacts.
-- [ ] Preserve or validate headers, metadata, and package layout.
-- [ ] Update manifest generation and README documentation for universal artifacts.
-- [ ] Record history and completion log entries.
+- [x] Add target selection support for macOS and iOS simulator universal derived artifacts.
+- [x] Implement universal artifact creation from existing per-architecture artifacts.
+- [x] Preserve or validate headers, metadata, and package layout.
+- [x] Update manifest generation and README documentation for universal artifacts.
+- [x] Record history and completion log entries.
 
 ### Testing Requirements
 
 The agent MUST complete ALL before outputting the magic phrase:
 
 #### Code Quality
-- [ ] `./build.sh --dry-run` succeeds.
-- [ ] `bash -n build.sh scripts/ralph-loop.sh scripts/ralph-loop-codex.sh scripts/ralph-loop-gemini.sh scripts/ralph-loop-copilot.sh scripts/lib/spec_queue.sh scripts/lib/nr_of_tries.sh` succeeds.
-- [ ] `python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/validate_required_operators_config.py` succeeds.
-- [ ] Workflow YAML parsing succeeds for changed workflow files.
-- [ ] `actionlint` succeeds for changed workflow files.
-- [ ] `git diff --check` succeeds.
+- [x] `./build.sh --dry-run` succeeds.
+- [x] `bash -n build.sh scripts/ralph-loop.sh scripts/ralph-loop-codex.sh scripts/ralph-loop-gemini.sh scripts/ralph-loop-copilot.sh scripts/lib/spec_queue.sh scripts/lib/nr_of_tries.sh` succeeds.
+- [x] `python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/validate_required_operators_config.py` succeeds.
+- [x] Workflow YAML parsing succeeds for changed workflow files.
+- [x] `actionlint` succeeds for changed workflow files.
+- [x] `git diff --check` succeeds.
 
 #### Functional Verification
-- [ ] The target resolver behavior is tested for `target-all`, each universal target selected alone, both source architecture targets selected without the universal target, and invalid or missing prerequisite cases.
-- [ ] A representative local or CI universal packaging run verifies `lipo -info` for `ios-simulator-universal-static`.
-- [ ] A representative local or CI universal packaging run verifies `lipo -info` for `macos-universal-static`.
-- [ ] Universal artifacts contain the expected `onnxruntime/lib/libonnxruntime.a` and headers.
-- [ ] Manifest generation succeeds against representative universal artifact archives.
-- [ ] Existing architecture-specific artifact names and manifest entries remain unchanged.
+- [x] The target resolver behavior is tested for `target-all`, each universal target selected alone, both source architecture targets selected without the universal target, and invalid or missing prerequisite cases.
+- [x] A representative local or CI universal packaging run verifies `lipo -info` for `ios-simulator-universal-static`.
+- [x] A representative local or CI universal packaging run verifies `lipo -info` for `macos-universal-static`.
+- [x] Universal artifacts contain the expected `onnxruntime/lib/libonnxruntime.a` and headers.
+- [x] Manifest generation succeeds against representative universal artifact archives.
+- [x] Existing architecture-specific artifact names and manifest entries remain unchanged.
 
 #### Visual Verification (if UI)
-- [ ] Not applicable.
+- [x] Not applicable.
 
 #### Console/Network Check (if web)
-- [ ] Not applicable.
+- [x] Not applicable.
 
 ### Iteration Instructions
 
@@ -145,4 +147,4 @@ If ANY check fails:
 
 **Only when ALL checks pass, output:** `<promise>DONE</promise>`
 
-NR_OF_TRIES=0
+NR_OF_TRIES=1
