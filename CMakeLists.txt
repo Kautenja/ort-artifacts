@@ -11,7 +11,7 @@ include(ExternalProject)
 set(REFERENCE "main" CACHE STRING "Exact branch or tag")
 option(STATIC_BUILD "Build static library" OFF)
 set(TARGET_ARCH "x86_64" CACHE STRING "Target architecture")
-set_property(CACHE TARGET_ARCH PROPERTY STRINGS x86_64 aarch64)
+set_property(CACHE TARGET_ARCH PROPERTY STRINGS x86_64 x86 aarch64 armv7)
 
 # Platform options
 option(IPHONEOS "Target iOS/iPadOS" OFF)
@@ -52,6 +52,19 @@ endif()
 
 # Environment variable validation for cross-compilation
 if(ANDROID)
+    set(SUPPORTED_ANDROID_ABIS armeabi-v7a arm64-v8a x86_64 x86)
+    if(NOT ANDROID_ABI IN_LIST SUPPORTED_ANDROID_ABIS)
+        message(FATAL_ERROR "Unsupported Android ABI '${ANDROID_ABI}'. Supported ABIs: ${SUPPORTED_ANDROID_ABIS}")
+    endif()
+    if(ANDROID_ABI STREQUAL "arm64-v8a")
+        set(TARGET_ARCH "aarch64" CACHE STRING "Target architecture" FORCE)
+    elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
+        set(TARGET_ARCH "armv7" CACHE STRING "Target architecture" FORCE)
+    elseif(ANDROID_ABI STREQUAL "x86_64")
+        set(TARGET_ARCH "x86_64" CACHE STRING "Target architecture" FORCE)
+    elseif(ANDROID_ABI STREQUAL "x86")
+        set(TARGET_ARCH "x86" CACHE STRING "Target architecture" FORCE)
+    endif()
     if(NOT DEFINED ENV{ANDROID_NDK_HOME})
         message(FATAL_ERROR "ANDROID_NDK_HOME environment variable must be set for Android builds")
     endif()
@@ -61,11 +74,11 @@ if(ANDROID)
 endif()
 
 # Execution provider platform compatibility checks
-if(USE_DIRECTML AND NOT PLATFORM_WIN32)
+if(USE_DIRECTML AND (NOT PLATFORM_WIN32 OR ANDROID))
     message(FATAL_ERROR "DirectML EP is only available on Windows")
 endif()
 
-if(USE_COREML AND NOT PLATFORM_DARWIN)
+if(USE_COREML AND (NOT PLATFORM_DARWIN OR ANDROID))
     message(FATAL_ERROR "CoreML EP is only available on macOS/iOS")
 endif()
 
@@ -73,17 +86,31 @@ if(USE_NNAPI AND NOT ANDROID)
     message(FATAL_ERROR "NNAPI EP is only available on Android")
 endif()
 
-if(USE_OPENVINO AND PLATFORM_DARWIN)
-    message(FATAL_ERROR "OpenVINO EP is not available on macOS")
+if(USE_OPENVINO AND (PLATFORM_DARWIN OR ANDROID))
+    message(FATAL_ERROR "OpenVINO EP is not available on macOS or Android")
 endif()
 
 # Prepare patch command
-file(GLOB PATCH_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/patches/all/*.patch)
+if(REFERENCE MATCHES "^v1\\.22(\\.|$)")
+    set(PATCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/patches/all-v1.22")
+else()
+    set(PATCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/patches/all")
+endif()
+
+message(STATUS "Using ONNX Runtime patch directory: ${PATCH_DIR}")
+
+file(GLOB PATCH_FILES ${PATCH_DIR}/*.patch)
 list(SORT PATCH_FILES)
 set(PATCH_COMMAND "")
 foreach(PATCH_FILE ${PATCH_FILES})
-    list(APPEND PATCH_COMMAND COMMAND git apply ${PATCH_FILE} --ignore-whitespace --recount || true)
+    list(APPEND PATCH_COMMAND
+        COMMAND git apply --check --ignore-whitespace --recount ${PATCH_FILE}
+        COMMAND git apply --ignore-whitespace --recount ${PATCH_FILE})
 endforeach()
+list(APPEND PATCH_COMMAND
+    COMMAND ${CMAKE_COMMAND}
+        -DORT_SOURCE_DIR=<SOURCE_DIR>
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/scripts/verify_onnxruntime_patches.cmake)
 
 
 # Prepare static build configuration command
@@ -134,7 +161,7 @@ else()
 endif()
 
 # Platform-specific configuration
-if(PLATFORM_DARWIN)
+if(PLATFORM_DARWIN AND NOT ANDROID)
     list(APPEND CMAKE_ARGS -Dprotobuf_BUILD_PROTOC_BINARIES=OFF)
     list(APPEND CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
@@ -173,13 +200,36 @@ endif()
 if(PLATFORM_LINUX AND NOT ANDROID AND TARGET_ARCH STREQUAL "aarch64")
     list(APPEND CMAKE_ARGS
         -Donnxruntime_CROSS_COMPILING=ON
-        # -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/toolchains/aarch64-unknown-linux-gnu.cmake
+        -DCMAKE_SYSTEM_PROCESSOR=aarch64
         -DCMAKE_TOOLCHAIN_FILE=<SOURCE_DIR>/cmake/linux_arm64_crosscompile_toolchain.cmake
     )
+
+    if(DEFINED ENV{CMAKE_SYSROOT} AND NOT "$ENV{CMAKE_SYSROOT}" STREQUAL "")
+        list(APPEND CMAKE_ARGS -DCMAKE_SYSROOT=$ENV{CMAKE_SYSROOT})
+    endif()
+
+    set(CMAKE_FIND_ROOT_PATH_ENTRIES)
+    if(DEFINED ENV{CMAKE_FIND_ROOT_PATH} AND NOT "$ENV{CMAKE_FIND_ROOT_PATH}" STREQUAL "")
+        list(APPEND CMAKE_FIND_ROOT_PATH_ENTRIES "$ENV{CMAKE_FIND_ROOT_PATH}")
+    endif()
+
+    if(USE_OPENVINO)
+        foreach(OPENVINO_ROOT_ENV IN ITEMS INTEL_OPENVINO_DIR OPENVINO_INSTALL_DIR)
+            if(DEFINED ENV{${OPENVINO_ROOT_ENV}} AND NOT "$ENV{${OPENVINO_ROOT_ENV}}" STREQUAL "")
+                list(APPEND CMAKE_FIND_ROOT_PATH_ENTRIES "$ENV{${OPENVINO_ROOT_ENV}}")
+            endif()
+        endforeach()
+    endif()
+
+    if(CMAKE_FIND_ROOT_PATH_ENTRIES)
+        list(REMOVE_DUPLICATES CMAKE_FIND_ROOT_PATH_ENTRIES)
+        string(REPLACE ";" "<|>" CMAKE_FIND_ROOT_PATH_ARG "${CMAKE_FIND_ROOT_PATH_ENTRIES}")
+        list(APPEND CMAKE_ARGS -DCMAKE_FIND_ROOT_PATH=${CMAKE_FIND_ROOT_PATH_ARG})
+    endif()
 endif()
 
 # Windows configuration
-if(PLATFORM_WIN32)
+if(PLATFORM_WIN32 AND NOT ANDROID)
     # Windows-specific compiler flags
     list(APPEND COMPILER_FLAGS "D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR")
 
@@ -210,11 +260,11 @@ if(PLATFORM_WIN32)
 endif()
 
 # Execution Provider configuration
-if(USE_DIRECTML AND PLATFORM_WIN32)
+if(USE_DIRECTML AND PLATFORM_WIN32 AND NOT ANDROID)
     list(APPEND CMAKE_ARGS -Donnxruntime_USE_DML=ON)
 endif()
 
-if(USE_COREML AND PLATFORM_DARWIN)
+if(USE_COREML AND PLATFORM_DARWIN AND NOT ANDROID)
     list(APPEND CMAKE_ARGS -Donnxruntime_USE_COREML=ON)
 endif()
 
@@ -234,7 +284,7 @@ if(USE_WEBGPU)
     )
 endif()
 
-if(USE_OPENVINO AND (PLATFORM_WIN32 OR PLATFORM_LINUX))
+if(USE_OPENVINO AND NOT ANDROID AND (PLATFORM_WIN32 OR PLATFORM_LINUX))
     list(APPEND CMAKE_ARGS
         -Donnxruntime_USE_OPENVINO=ON
         -Donnxruntime_USE_OPENVINO_GPU=ON
@@ -242,6 +292,67 @@ if(USE_OPENVINO AND (PLATFORM_WIN32 OR PLATFORM_LINUX))
         -Donnxruntime_USE_OPENVINO_NPU=ON
         -Donnxruntime_DISABLE_RTTI=OFF
     )
+
+    set(OPENVINO_CONFIG_DIR "")
+    if(DEFINED ENV{OpenVINO_DIR} AND NOT "$ENV{OpenVINO_DIR}" STREQUAL "")
+        if(EXISTS "$ENV{OpenVINO_DIR}/OpenVINOConfig.cmake" OR EXISTS "$ENV{OpenVINO_DIR}/openvino-config.cmake")
+            set(OPENVINO_CONFIG_DIR "$ENV{OpenVINO_DIR}")
+        endif()
+    endif()
+
+    if(NOT OPENVINO_CONFIG_DIR)
+        foreach(OPENVINO_ROOT_ENV IN ITEMS INTEL_OPENVINO_DIR OPENVINO_INSTALL_DIR)
+            if(DEFINED ENV{${OPENVINO_ROOT_ENV}} AND NOT "$ENV{${OPENVINO_ROOT_ENV}}" STREQUAL "")
+                set(OPENVINO_CANDIDATE_DIR "$ENV{${OPENVINO_ROOT_ENV}}/runtime/cmake")
+                if(EXISTS "${OPENVINO_CANDIDATE_DIR}/OpenVINOConfig.cmake" OR EXISTS "${OPENVINO_CANDIDATE_DIR}/openvino-config.cmake")
+                    set(OPENVINO_CONFIG_DIR "${OPENVINO_CANDIDATE_DIR}")
+                    break()
+                endif()
+            endif()
+        endforeach()
+    endif()
+
+    if(OPENVINO_CONFIG_DIR)
+        list(APPEND CMAKE_ARGS -DOpenVINO_DIR=${OPENVINO_CONFIG_DIR})
+    endif()
+
+    set(OPENVINO_TBB_CONFIG_DIR "")
+    if(DEFINED ENV{TBB_DIR} AND NOT "$ENV{TBB_DIR}" STREQUAL "")
+        if(EXISTS "$ENV{TBB_DIR}/TBBConfig.cmake" OR EXISTS "$ENV{TBB_DIR}/tbb-config.cmake")
+            set(OPENVINO_TBB_CONFIG_DIR "$ENV{TBB_DIR}")
+        endif()
+    endif()
+
+    if(NOT OPENVINO_TBB_CONFIG_DIR)
+        foreach(OPENVINO_ROOT_ENV IN ITEMS INTEL_OPENVINO_DIR OPENVINO_INSTALL_DIR)
+            if(DEFINED ENV{${OPENVINO_ROOT_ENV}} AND NOT "$ENV{${OPENVINO_ROOT_ENV}}" STREQUAL "")
+                foreach(TBB_CANDIDATE_DIR IN ITEMS
+                    "$ENV{${OPENVINO_ROOT_ENV}}/runtime/3rdparty/tbb/lib/cmake/TBB"
+                    "$ENV{${OPENVINO_ROOT_ENV}}/runtime/3rdparty/tbb/lib/cmake/tbb"
+                    "$ENV{${OPENVINO_ROOT_ENV}}/runtime/3rdparty/tbb/lib64/cmake/TBB"
+                    "$ENV{${OPENVINO_ROOT_ENV}}/runtime/3rdparty/tbb/cmake")
+                    if(EXISTS "${TBB_CANDIDATE_DIR}/TBBConfig.cmake" OR EXISTS "${TBB_CANDIDATE_DIR}/tbb-config.cmake")
+                        set(OPENVINO_TBB_CONFIG_DIR "${TBB_CANDIDATE_DIR}")
+                        break()
+                    endif()
+                endforeach()
+            endif()
+
+            if(OPENVINO_TBB_CONFIG_DIR)
+                break()
+            endif()
+        endforeach()
+    endif()
+
+    if(OPENVINO_TBB_CONFIG_DIR)
+        list(APPEND CMAKE_ARGS -DTBB_DIR=${OPENVINO_TBB_CONFIG_DIR})
+    endif()
+
+    if(DEFINED ENV{CMAKE_PREFIX_PATH} AND NOT "$ENV{CMAKE_PREFIX_PATH}" STREQUAL "")
+        cmake_path(CONVERT "$ENV{CMAKE_PREFIX_PATH}" TO_CMAKE_PATH_LIST CMAKE_PREFIX_PATH_ENTRIES NORMALIZE)
+        string(REPLACE ";" "<|>" CMAKE_PREFIX_PATH_ARG "${CMAKE_PREFIX_PATH_ENTRIES}")
+        list(APPEND CMAKE_ARGS -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH_ARG})
+    endif()
 
     if(WIN32)
         if((CMAKE_BUILD_TYPE MATCHES "Debug") OR ("Debug" IN_LIST CMAKE_CONFIGURATION_TYPES))

@@ -1,0 +1,17 @@
+diff --git a/onnxruntime/core/providers/openvino/ov_interface.h b/onnxruntime/core/providers/openvino/ov_interface.h
+--- a/onnxruntime/core/providers/openvino/ov_interface.h
++++ b/onnxruntime/core/providers/openvino/ov_interface.h
+@@ -13,10 +13,13 @@
+ #include "openvino/pass/convert_fp32_to_fp16.hpp"
+ #include "openvino/frontend/manager.hpp"
+ 
++#include "core/common/common.h"
++
+ #ifdef IO_BUFFER_ENABLED
+ #include <openvino/runtime/intel_gpu/ocl/ocl.hpp>
+ #endif
+ 
++#include <mutex>
+ #include <string>
+ 
+ namespace onnxruntime {

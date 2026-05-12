@@ -34,24 +34,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - target: linux-aarch64-static
-          #   args: "--static -A aarch64 --xnnpack -N --openvino"
-          #   runs-on: ubuntu-22.04
-          # - target: linux-x86_64-static
-          #   args: "--static --xnnpack -N --openvino"
-          #   runs-on: ubuntu-22.04
+          - target: linux-aarch64-static
+            args: "--static -A aarch64 --xnnpack -N --openvino"
+            runs-on: ubuntu-22.04
+          - target: linux-x86_64-static
+            args: "--static --xnnpack -N --openvino"
+            runs-on: ubuntu-22.04
           - target: macos-aarch64-static
             args: "--static -A aarch64 --xnnpack --coreml -N"
             runs-on: macos-14
           - target: macos-x86_64-static
             args: "--static --xnnpack --coreml -N"
             runs-on: macos-14
-          # - target: windows-md-x86_64-static
-          #   args: "--static --directml --xnnpack --openvino -N"
-          #   runs-on: windows-2025
+          - target: windows-md-x86_64-static
+            args: "--static --directml --xnnpack -N"
+            runs-on: windows-2022
           # - target: windows-mt-x86_64-static
-          #   args: "--static --mt --directml --xnnpack --openvino -N"
-          #   runs-on: windows-2025
+          #   args: "--static --mt --directml --xnnpack -N"
+          #   runs-on: windows-2022
           # - target: emscripten-wasm32
           #   args: "-W --webgpu"
           #   runs-on: ubuntu-22.04
@@ -64,9 +64,18 @@ jobs:
           - target: ios-simulator-x86_64-static
             args: "--static --iphonesimulator -A x86_64 --xnnpack --coreml -N"
             runs-on: macos-14
-          # - target: android-aarch64-static
-          #   args: "--static --android -A aarch64 --xnnpack --nnapi -N"
-          #   runs-on: ubuntu-22.04
+          - target: android-arm64-v8a-static
+            args: "--static --android --android_abi arm64-v8a --xnnpack --nnapi -N"
+            runs-on: ubuntu-22.04
+          - target: android-armeabi-v7a-static
+            args: "--static --android --android_abi armeabi-v7a --xnnpack --nnapi -N"
+            runs-on: ubuntu-22.04
+          - target: android-x86_64-static
+            args: "--static --android --android_abi x86_64 --xnnpack --nnapi -N"
+            runs-on: ubuntu-22.04
+          - target: android-x86-static
+            args: "--static --android --android_abi x86 --xnnpack --nnapi -N"
+            runs-on: ubuntu-22.04
 
     steps:
       - name: Free Disk Space (Ubuntu)
@@ -107,20 +116,31 @@ jobs:
         if: (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
 
       - uses: actions/setup-java@v4
-        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && (matrix.target == 'android-aarch64-dylib' || matrix.target == 'android-aarch64-static')
+        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
         with:
           java-version: "17"
           distribution: "temurin"
 
       - uses: android-actions/setup-android@v3
-        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && (matrix.target == 'android-aarch64-dylib' || matrix.target == 'android-aarch64-static')
+        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
 
       - uses: nttld/setup-ndk@v1
         id: setup-ndk
-        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && (matrix.target == 'android-aarch64-dylib' || matrix.target == 'android-aarch64-static')
+        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
         with:
           add-to-path: false
           ndk-version: r28
+
+      - name: Verify Android SDK and NDK
+        if: ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))) && contains(matrix.target, 'android')
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        shell: bash
+        run: |
+          test -n "${ANDROID_SDK_ROOT:-}"
+          test -d "${ANDROID_SDK_ROOT}"
+          test -n "${ANDROID_NDK_HOME:-}"
+          test -d "${ANDROID_NDK_HOME}"
 
       - uses: JW-AV/install-openvino-action@v10.1
         if: contains(matrix.args, '--openvino') && ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset))))
@@ -128,6 +148,41 @@ jobs:
           version: "2025.2"
           arch: ${{ contains(matrix.target, 'aarch64') && 'arm64' || 'x86_64' }}
           release: ${{ (contains(matrix.target, 'linux') && (contains(matrix.target, 'aarch64') && 'ubuntu20' || 'ubuntu22') || 'ubuntu22') || '' }}
+
+      - name: Verify OpenVINO CMake package
+        if: contains(matrix.args, '--openvino') && ((inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) || (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset))))
+        shell: bash
+        run: |
+          OPENVINO_ROOT="${INTEL_OPENVINO_DIR:-${OPENVINO_INSTALL_DIR:-}}"
+          if [[ -z "${OpenVINO_DIR:-}" && -n "$OPENVINO_ROOT" ]]; then
+            OpenVINO_DIR="$OPENVINO_ROOT/runtime/cmake"
+            echo "OpenVINO_DIR=$OpenVINO_DIR" >> "$GITHUB_ENV"
+          fi
+
+          if [[ -z "${TBB_DIR:-}" && -n "$OPENVINO_ROOT" ]]; then
+            for candidate in \
+              "$OPENVINO_ROOT/runtime/3rdparty/tbb/lib/cmake/TBB" \
+              "$OPENVINO_ROOT/runtime/3rdparty/tbb/lib/cmake/tbb" \
+              "$OPENVINO_ROOT/runtime/3rdparty/tbb/lib64/cmake/TBB" \
+              "$OPENVINO_ROOT/runtime/3rdparty/tbb/cmake"; do
+              if [[ -f "$candidate/TBBConfig.cmake" || -f "$candidate/tbb-config.cmake" ]]; then
+                TBB_DIR="$candidate"
+                echo "TBB_DIR=$TBB_DIR" >> "$GITHUB_ENV"
+                break
+              fi
+            done
+          fi
+
+          echo "OPENVINO_INSTALL_DIR=${OPENVINO_INSTALL_DIR:-}"
+          echo "INTEL_OPENVINO_DIR=${INTEL_OPENVINO_DIR:-}"
+          echo "OpenVINO_DIR=${OpenVINO_DIR:-}"
+          echo "TBB_DIR=${TBB_DIR:-}"
+
+          test -n "${OpenVINO_DIR:-}"
+          if [[ ! -f "$OpenVINO_DIR/OpenVINOConfig.cmake" && ! -f "$OpenVINO_DIR/openvino-config.cmake" ]]; then
+            echo "OpenVINO CMake config was not found under OpenVINO_DIR=$OpenVINO_DIR" >&2
+            exit 1
+          fi
 
       - name: Ubuntu GCC 11 setup
         if: contains(matrix.runs-on, 'ubuntu-24')
@@ -137,10 +192,39 @@ jobs:
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 70 --slave /usr/bin/g++ g++ /usr/bin/g++-11 --slave /usr/bin/gcov gcov /usr/bin/gcov-11
 
       - name: Install clang
-        if: contains(matrix.target, 'linux')
+        if: >
+          contains(matrix.target, 'linux') &&
+          (
+            (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) ||
+            (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
+          )
         shell: bash
         run: |
-          sudo apt install clang
+          sudo apt-get update
+          sudo apt-get install -y clang
+
+      - name: Verify Windows build tools
+        if: >
+          contains(matrix.target, 'windows') &&
+          (
+            (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) ||
+            (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
+          )
+        shell: bash
+        run: |
+          command -v cmake
+          command -v ninja
+          command -v 7z
+
+          PROGFILES_X86=$(printenv "ProgramFiles(x86)" 2>/dev/null || true)
+          if [[ -n "$PROGFILES_X86" ]]; then
+            PROGFILES_X86=$(cygpath -u "$PROGFILES_X86")
+          else
+            PROGFILES_X86="/c/Program Files (x86)"
+          fi
+
+          VSWHERE_PATH="$PROGFILES_X86/Microsoft Visual Studio/Installer/vswhere.exe"
+          "$VSWHERE_PATH" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
 
       - name: Run build
         if: >
@@ -191,11 +275,11 @@ jobs:
         run: |
           if [[ "${{ matrix.target }}" == *windows* ]]; then
             pushd build/artifact
-            7z a -tzip $(dirs +1 -l)/ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}.zip
+            7z a -tzip "$(dirs +1 -l)/ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}.zip" .
             popd
           else
             pushd build/artifact
-            zip -y -r $(dirs +1 -l)/ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}.zip .
+            zip -y -r "$(dirs +1 -l)/ort-${{ inputs.onnxruntime-ref }}-${{ matrix.target }}-${{ steps.lower-buildtype.outputs.string }}.zip" .
             popd
           fi
         shell: bash

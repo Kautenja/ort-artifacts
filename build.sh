@@ -31,6 +31,7 @@ USE_NNAPI="OFF"
 DRY_RUN="OFF"
 CLEAN="OFF"
 CLEAN_ALL="OFF"
+BUILD_VERBOSE="${ORT_BUILD_VERBOSE:-OFF}"
 
 # argument parsing
 while [[ $# -gt 0 ]]; do
@@ -115,6 +116,14 @@ while [[ $# -gt 0 ]]; do
 		DRY_RUN="ON"
 		shift
 		;;
+	--build-verbose)
+		BUILD_VERBOSE="ON"
+		shift
+		;;
+	--no-build-verbose)
+		BUILD_VERBOSE="OFF"
+		shift
+		;;
 	--clean)
 		CLEAN="ON"
 		shift
@@ -141,7 +150,7 @@ while [[ $# -gt 0 ]]; do
 		echo "      --debug                  Set debug build mode (same as: -b Debug)"
 		echo "      --release                Set release build mode (same as: -b Release)"
 		echo "  -N, --ninja                  Build with Ninja"
-		echo "  -A, --arch <arch>            Configure target architecture (x86_64, aarch64) (default: x86_64)"
+		echo "  -A, --arch <arch>            Configure target architecture (x86_64, x86, aarch64, armv7) (default: x86_64)"
 		echo "      --iphoneos               Target iOS / iPadOS"
 		echo "      --iphonesimulator        Target iOS / iPadOS simulator"
 		echo "      --android                Target Android"
@@ -157,6 +166,8 @@ while [[ $# -gt 0 ]]; do
 		echo "      --openvino               Enable OpenVINO EP"
 		echo "      --nnapi                  Enable NNAPI EP"
 		echo "      --dry-run                Print CMake command without executing"
+		echo "      --build-verbose          Show verbose compiler/build commands"
+		echo "      --no-build-verbose       Disable verbose compiler/build commands"
 		echo "      --force-update           Force update of ONNXRuntime repository (re-clone)"
 		echo "      --clean                  Clean build directory but preserve ONNXRuntime repository"
 		echo "      --clean-all              Clean everything including ONNXRuntime repository"
@@ -240,9 +251,35 @@ if [[ "$CLEAN" == "ON" || "$CLEAN_ALL" == "ON" ]]; then
 	exit 0
 fi
 
+if [[ "$ANDROID" == "ON" ]]; then
+	case "$ANDROID_ABI" in
+	arm64-v8a)
+		TARGET_ARCH="aarch64"
+		;;
+	armeabi-v7a)
+		TARGET_ARCH="armv7"
+		;;
+	x86_64)
+		TARGET_ARCH="x86_64"
+		;;
+	x86)
+		TARGET_ARCH="x86"
+		;;
+	*)
+		echo "Unsupported Android ABI: $ANDROID_ABI" >&2
+		echo "Supported Android ABIs: arm64-v8a, armeabi-v7a, x86_64, x86" >&2
+		exit 1
+		;;
+	esac
+fi
+
 # configure generator arguments
 if [[ "$USE_NINJA" == "ON" ]]; then
 	GENERATOR_ARGS=("-G" "Ninja")
+	if [[ -z "${NINJA_STATUS:-}" ]]; then
+		export NINJA_STATUS="[%f/%t %p | %es] "
+	fi
+	echo -e "${CYAN}Using Ninja progress format: ${NINJA_STATUS}${NC}"
 else
 	if [[ "$IS_WINDOWS" == "true" ]]; then
 		GENERATOR_ARGS=("-G" "Visual Studio 17 2022" "-A" "x64")
@@ -275,8 +312,11 @@ CMAKE_ARGS=(
 	"-DUSE_WEBGPU=$USE_WEBGPU"
 	"-DUSE_OPENVINO=$USE_OPENVINO"
 	"-DUSE_NNAPI=$USE_NNAPI"
-	"${GENERATOR_ARGS[@]}"
 )
+
+if [[ ${#GENERATOR_ARGS[@]} -gt 0 ]]; then
+	CMAKE_ARGS+=("${GENERATOR_ARGS[@]}")
+fi
 
 if [[ "${TARGET_LINUX:-}" == "true" ]]; then
 	export CC=clang
@@ -293,7 +333,11 @@ fi
 if [[ "$IS_WINDOWS" == "true" && "$USE_NINJA" == "ON" ]]; then
 	# find default VS installer path to obtain the `vswhere.exe` path
 	PROGFILES_X86=$(printenv "ProgramFiles(x86)" 2>/dev/null || echo "")
-	[[ -z "$PROGFILES_X86" ]] && PROGFILES_X86="/c/Program Files (x86)"
+	if [[ -n "$PROGFILES_X86" ]]; then
+		PROGFILES_X86=$(cygpath -u "$PROGFILES_X86")
+	else
+		PROGFILES_X86="/c/Program Files (x86)"
+	fi
 	VSWHERE_PATH="$PROGFILES_X86/Microsoft Visual Studio/Installer/vswhere.exe"
 
 	# determine VS path
@@ -308,6 +352,9 @@ if [[ "$IS_WINDOWS" == "true" && "$USE_NINJA" == "ON" ]]; then
 	CMAKE_CMD="cmake ${CMAKE_ARGS[*]}"
 
 	BUILD_CMD="cmake --build build --parallel"
+	if [[ "$BUILD_VERBOSE" == "ON" ]]; then
+		BUILD_CMD="${BUILD_CMD} --verbose"
+	fi
 	INSTALL_CMD="cmake --install build"
 
 	FULL_COMMAND=("$COMSPEC" "//c" "${VSDEVCMD} -no_logo -arch=amd64 -host_arch=amd64 && ${CMAKE_CMD} && ${BUILD_CMD} && ${INSTALL_CMD}")
@@ -317,6 +364,9 @@ else
 	CONFIGURE_COMMAND=("cmake" "${CMAKE_ARGS[@]}")
 
 	BUILD_COMMAND=("cmake" "--build" "build" "--parallel")
+	if [[ "$BUILD_VERBOSE" == "ON" ]]; then
+		BUILD_COMMAND+=("--verbose")
+	fi
 	INSTALL_COMMAND=("cmake" "--install" "build")
 fi
 

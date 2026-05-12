@@ -13,17 +13,20 @@ on:
         default: "all"
         options:
           - "all"
-          # - linux-aarch64-static
-          # - linux-x86_64-static
+          - linux-aarch64-static
+          - linux-x86_64-static
           - macos-aarch64-static
           - macos-x86_64-static
-          # - windows-md-x86_64-static
+          - windows-md-x86_64-static
           # - windows-mt-x86_64-static
           # - emscripten-wasm32
           - ios-aarch64-static
           - ios-simulator-aarch64-static
           - ios-simulator-x86_64-static
-          # - android-aarch64-static
+          - android-arm64-v8a-static
+          - android-armeabi-v7a-static
+          - android-x86_64-static
+          - android-x86-static
       target-custom:
         type: string
         description: "Custom target filter (overrides preset if specified, supports substring matching)"
