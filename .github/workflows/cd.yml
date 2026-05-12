@@ -39,6 +39,16 @@ on:
           - 'Both'
           - 'Release'
           - 'Debug'
+      required-operators-config-base64:
+        type: string
+        description: "Optional base64-encoded contents of a *.required_operators.config or *.required_operators_and_types.config file."
+        required: false
+        default: ""
+      enable-reduced-operator-type-support:
+        type: boolean
+        description: "Enable ONNX Runtime reduced operator type support. Requires required-operators-config-base64."
+        required: false
+        default: false
       publish:
         type: boolean
         description: "Publish as draft release on GitHub."
@@ -54,6 +64,8 @@ jobs:
       buildtype: Debug
       target-preset: ${{ inputs.target-preset }}
       target-custom: ${{ inputs.target-custom }}
+      required-operators-config-base64: ${{ inputs.required-operators-config-base64 }}
+      enable-reduced-operator-type-support: ${{ inputs.enable-reduced-operator-type-support }}
 
   build-release:
     if: inputs.buildtype == 'Both' || inputs.buildtype == 'Release'
@@ -63,6 +75,8 @@ jobs:
       buildtype: Release
       target-preset: ${{ inputs.target-preset }}
       target-custom: ${{ inputs.target-custom }}
+      required-operators-config-base64: ${{ inputs.required-operators-config-base64 }}
+      enable-reduced-operator-type-support: ${{ inputs.enable-reduced-operator-type-support }}
 
   publish:
     if: inputs.publish && always() && !cancelled() && !contains(needs.*.result, 'failure')

@@ -41,3 +41,38 @@ The CD workflow can build all enabled targets or one target preset at a time. En
 Windows static artifacts currently enable the dynamic CRT target only. The static CRT variant and Windows ARM64 are deferred to later specs so they can receive separate runner, toolchain, and downstream-linking validation.
 
 Android artifacts are native static archives for downstream CMake/JNI integration. They do not package ONNX Runtime Java bindings, `onnxruntime4j`, or an AAR; JNI bindings are expected to live in the consuming project.
+
+## Reduced Operator Builds
+
+Manual CD runs can build model-set-specific ONNX Runtime artifacts from a reduced operator config. Generate a config from ONNX Runtime tooling, for example with `create_reduced_build_config.py`, or keep the `required_operators.config` / `required_operators_and_types.config` emitted when converting ONNX models to ORT format. Type-aware configs can be used with `enable-reduced-operator-type-support`.
+
+Base64 encode the config before starting the workflow. The raw config is decoded only under the runner temp directory and is not uploaded.
+
+macOS/Linux:
+
+```bash
+base64 -i required_operators.config | tr -d '\n'
+```
+
+Windows PowerShell:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("required_operators.config"))
+```
+
+In the GitHub Actions UI, choose **CD**, select **Run workflow**, paste the base64 string into `required-operators-config-base64`, and enable `enable-reduced-operator-type-support` only for a type-aware config. The same run can leave `target-custom` empty, or set it to a substring filter for one target.
+
+CLI example:
+
+```bash
+gh workflow run cd.yml \
+  -f target-preset=linux-x86_64-static \
+  -f target-custom= \
+  -f buildtype=Release \
+  -f required-operators-config-base64="$(base64 -i required_operators.config | tr -d '\n')" \
+  -f enable-reduced-operator-type-support=false
+```
+
+GitHub `workflow_dispatch` inputs are limited to 65,535 characters. If the generated base64 payload is larger, split the build or check the config into a controlled branch and add a repository-based config path instead of pasting the payload.
+
+Reduced operator artifacts are not general-purpose ORT builds. When a config is supplied, archive and upload names include `ops-<12-hex-chars>`, and `manifest.json` records `reduced_ops`, the full `required_operators_config_sha256`, and safe counts. To correlate a local config with an artifact, run `shasum -a 256 required_operators.config` and match the first 12 hex characters to the artifact name or the full hash in the manifest.
