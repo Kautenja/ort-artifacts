@@ -13,8 +13,8 @@ on:
         default: "all"
         options:
           - "all"
-          # - linux-aarch64-static
-          # - linux-x86_64-static
+          - linux-aarch64-static
+          - linux-x86_64-static
           - macos-aarch64-static
           - macos-x86_64-static
           # - windows-md-x86_64-static

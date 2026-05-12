@@ -1,6 +1,6 @@
 # Specification: Linux Static Artifact Workflows
 
-Status: TODO
+Status: COMPLETE
 
 ## Feature: Linux x86_64 and aarch64 Static ONNX Runtime Artifacts
 
@@ -22,37 +22,37 @@ The Linux workflow must produce static artifacts in the same release and manifes
 The reusable build workflow must include active Linux static targets for x86_64 and aarch64.
 
 **Acceptance Criteria:**
-- [ ] `.github/workflows/_build.yml` includes active matrix entries named `linux-x86_64-static` and `linux-aarch64-static`.
-- [ ] Both Linux targets run on an Ubuntu GitHub-hosted runner.
-- [ ] Both Linux targets request static builds and include the intended Linux execution providers already supported by this repository.
-- [ ] The target names appear consistently in artifact names, archive names, and manual workflow filters.
+- [x] `.github/workflows/_build.yml` includes active matrix entries named `linux-x86_64-static` and `linux-aarch64-static`.
+- [x] Both Linux targets run on an Ubuntu GitHub-hosted runner.
+- [x] Both Linux targets request static builds and include the intended Linux execution providers already supported by this repository.
+- [x] The target names appear consistently in artifact names, archive names, and manual workflow filters.
 
 ### FR-2: Linux Cross-Compilation Setup
 The workflow must configure Linux aarch64 cross-compilation reliably without breaking x86_64 Linux or existing Apple targets.
 
 **Acceptance Criteria:**
-- [ ] The aarch64 Linux target installs or configures an appropriate aarch64 cross toolchain.
-- [ ] The build passes the correct CMake toolchain, sysroot, compiler, and architecture flags for aarch64.
-- [ ] The x86_64 Linux target uses the native Ubuntu runner toolchain without aarch64-only setup.
-- [ ] Linux-specific environment variables are scoped to Linux targets and do not affect macOS, iOS, Windows, Android, or WebAssembly targets.
+- [x] The aarch64 Linux target installs or configures an appropriate aarch64 cross toolchain.
+- [x] The build passes the correct CMake toolchain, sysroot, compiler, and architecture flags for aarch64.
+- [x] The x86_64 Linux target uses the native Ubuntu runner toolchain without aarch64-only setup.
+- [x] Linux-specific environment variables are scoped to Linux targets and do not affect macOS, iOS, Windows, Android, or WebAssembly targets.
 
 ### FR-3: Linux Workflow Dispatch Options
 The manual CD workflow must expose Linux targets as selectable presets.
 
 **Acceptance Criteria:**
-- [ ] `.github/workflows/cd.yml` includes `linux-x86_64-static` and `linux-aarch64-static` in the `target-preset` choices.
-- [ ] `target-custom` substring filtering can still build either Linux target independently.
-- [ ] Selecting `all` includes both Linux targets.
-- [ ] Existing Apple target options continue to work.
+- [x] `.github/workflows/cd.yml` includes `linux-x86_64-static` and `linux-aarch64-static` in the `target-preset` choices.
+- [x] `target-custom` substring filtering can still build either Linux target independently.
+- [x] Selecting `all` includes both Linux targets.
+- [x] Existing Apple target options continue to work.
 
 ### FR-4: Linux Artifact Packaging and Release Metadata
 Linux artifacts must flow through upload, download, manifest generation, and draft release publishing without special manual steps.
 
 **Acceptance Criteria:**
-- [ ] Each Linux build uploads exactly one zip archive named `ort-<onnxruntime-ref>-<linux-target>-<buildtype>.zip`.
-- [ ] Draft release publishing includes Linux artifacts and `manifest.json`.
-- [ ] The manifest includes Linux archive names and SHA256 checksums.
-- [ ] Linux archives contain the expected static library, headers, and dependency files required by downstream native linking.
+- [x] Each Linux build uploads exactly one zip archive named `ort-<onnxruntime-ref>-<linux-target>-<buildtype>.zip`.
+- [x] Draft release publishing includes Linux artifacts and `manifest.json`.
+- [x] The manifest includes Linux archive names and SHA256 checksums.
+- [x] Linux archives contain the expected static library, headers, and dependency files required by downstream native linking.
 
 ---
 
@@ -82,33 +82,33 @@ Linux artifacts must flow through upload, download, manifest generation, and dra
 ## Completion Signal
 
 ### Implementation Checklist
-- [ ] Enable Linux x86_64 and aarch64 static targets in `.github/workflows/_build.yml`.
-- [ ] Add Linux target choices to `.github/workflows/cd.yml`.
-- [ ] Adjust Linux toolchain, OpenVINO, and CMake environment setup as needed.
-- [ ] Verify artifact upload, naming, and manifest behavior.
-- [ ] Update project documentation if new Linux build behavior or limitations need to be explained.
+- [x] Enable Linux x86_64 and aarch64 static targets in `.github/workflows/_build.yml`.
+- [x] Add Linux target choices to `.github/workflows/cd.yml`.
+- [x] Adjust Linux toolchain, OpenVINO, and CMake environment setup as needed.
+- [x] Verify artifact upload, naming, and manifest behavior.
+- [x] Update project documentation if new Linux build behavior or limitations need to be explained.
 
 ### Testing Requirements
 
 The agent MUST complete ALL before outputting the magic phrase:
 
 #### Code Quality
-- [ ] YAML syntax is valid.
-- [ ] Shell snippets in workflow steps are syntax checked where practical.
-- [ ] `./build.sh --dry-run --static --xnnpack -N --openvino` succeeds for Linux x86_64 arguments.
-- [ ] `./build.sh --dry-run --static -A aarch64 --xnnpack -N --openvino` succeeds for Linux aarch64 arguments.
+- [x] YAML syntax is valid.
+- [x] Shell snippets in workflow steps are syntax checked where practical.
+- [x] `./build.sh --dry-run --static --xnnpack -N --openvino` succeeds for Linux x86_64 arguments.
+- [x] `./build.sh --dry-run --static -A aarch64 --xnnpack -N --openvino` succeeds for Linux aarch64 arguments.
 
 #### Functional Verification
-- [ ] All acceptance criteria verified.
-- [ ] At least one GitHub Actions run or local equivalent validates Linux x86_64 configuration.
-- [ ] At least one GitHub Actions run or local equivalent validates Linux aarch64 configuration.
-- [ ] Any unavailable local platform validation is documented in `completion_log/`.
+- [x] All acceptance criteria verified.
+- [x] At least one GitHub Actions run or local equivalent validates Linux x86_64 configuration.
+- [x] At least one GitHub Actions run or local equivalent validates Linux aarch64 configuration.
+- [x] Any unavailable local platform validation is documented in `completion_log/`.
 
 #### Visual Verification (if UI)
-- [ ] Not applicable.
+- [x] Not applicable.
 
 #### Console/Network Check (if web)
-- [ ] Not applicable.
+- [x] Not applicable.
 
 ### Iteration Instructions
 
@@ -122,5 +122,4 @@ If ANY check fails:
 
 **Only when ALL checks pass, output:** `<promise>DONE</promise>`
 
-NR_OF_TRIES=0
-
+NR_OF_TRIES=1

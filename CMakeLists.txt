@@ -173,9 +173,17 @@ endif()
 if(PLATFORM_LINUX AND NOT ANDROID AND TARGET_ARCH STREQUAL "aarch64")
     list(APPEND CMAKE_ARGS
         -Donnxruntime_CROSS_COMPILING=ON
-        # -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/toolchains/aarch64-unknown-linux-gnu.cmake
+        -DCMAKE_SYSTEM_PROCESSOR=aarch64
         -DCMAKE_TOOLCHAIN_FILE=<SOURCE_DIR>/cmake/linux_arm64_crosscompile_toolchain.cmake
     )
+
+    if(DEFINED ENV{CMAKE_SYSROOT} AND NOT "$ENV{CMAKE_SYSROOT}" STREQUAL "")
+        list(APPEND CMAKE_ARGS -DCMAKE_SYSROOT=$ENV{CMAKE_SYSROOT})
+    endif()
+
+    if(DEFINED ENV{CMAKE_FIND_ROOT_PATH} AND NOT "$ENV{CMAKE_FIND_ROOT_PATH}" STREQUAL "")
+        list(APPEND CMAKE_ARGS -DCMAKE_FIND_ROOT_PATH=$ENV{CMAKE_FIND_ROOT_PATH})
+    endif()
 endif()
 
 # Windows configuration

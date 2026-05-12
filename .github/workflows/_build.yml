@@ -34,12 +34,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - target: linux-aarch64-static
-          #   args: "--static -A aarch64 --xnnpack -N --openvino"
-          #   runs-on: ubuntu-22.04
-          # - target: linux-x86_64-static
-          #   args: "--static --xnnpack -N --openvino"
-          #   runs-on: ubuntu-22.04
+          - target: linux-aarch64-static
+            args: "--static -A aarch64 --xnnpack -N --openvino"
+            runs-on: ubuntu-22.04
+          - target: linux-x86_64-static
+            args: "--static --xnnpack -N --openvino"
+            runs-on: ubuntu-22.04
           - target: macos-aarch64-static
             args: "--static -A aarch64 --xnnpack --coreml -N"
             runs-on: macos-14
@@ -137,10 +137,16 @@ jobs:
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 70 --slave /usr/bin/g++ g++ /usr/bin/g++-11 --slave /usr/bin/gcov gcov /usr/bin/gcov-11
 
       - name: Install clang
-        if: contains(matrix.target, 'linux')
+        if: >
+          contains(matrix.target, 'linux') &&
+          (
+            (inputs.target-custom != '' && (inputs.target-custom == 'all' || contains(matrix.target, inputs.target-custom))) ||
+            (inputs.target-custom == '' && (inputs.target-preset == 'all' || contains(matrix.target, inputs.target-preset)))
+          )
         shell: bash
         run: |
-          sudo apt install clang
+          sudo apt-get update
+          sudo apt-get install -y clang
 
       - name: Run build
         if: >
