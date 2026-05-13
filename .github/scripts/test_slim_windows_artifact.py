@@ -23,7 +23,7 @@ def write_file(path: Path, size: int = 1) -> None:
 def create_artifact(root: Path, buildtype: str = "Release", directml: bool = True) -> None:
     lib_name = "onnxruntimed.lib" if buildtype == "Debug" else "onnxruntime.lib"
     write_file(root / "onnxruntime" / "lib" / lib_name, 64)
-    write_file(root / "onnxruntime" / "include" / "onnxruntime" / "core" / "session" / "onnxruntime_c_api.h", 16)
+    write_file(root / "onnxruntime" / "include" / "onnxruntime" / "onnxruntime_c_api.h", 16)
     write_file(root / "onnxruntime" / "lib" / "cmake" / "onnxruntime" / "onnxruntimeConfig.cmake", 8)
     write_file(root / "onnxruntime" / "lib" / "cmake" / "onnxruntime" / "onnxruntimeTargets.cmake", 8)
     if directml:

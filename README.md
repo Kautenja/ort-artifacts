@@ -62,6 +62,8 @@ Default providers below assume the provider checkboxes are left enabled.
 
 Windows static artifacts currently enable only the dynamic CRT target. Static CRT and Windows ARM64 variants are deferred to separate specs so runner, toolchain, and downstream-linking behavior can be validated independently.
 
+Static artifacts package public ONNX Runtime headers at `onnxruntime/include/onnxruntime/*.h`. The package includes the public session headers, `cpu_provider_factory.h`, and enabled provider factory headers such as `coreml_provider_factory.h`, `nnapi_provider_factory.h`, `dml_provider_factory.h`, or `openvino_provider_factory.h`; raw upstream source directories such as `onnxruntime/include/onnxruntime/core` are rejected before upload.
+
 Windows artifacts package `onnxruntime/lib/onnxruntime.lib`, public headers under `onnxruntime/include`, and a minimal CMake package under `onnxruntime/lib/cmake/onnxruntime`. DirectML-enabled builds keep the required `DirectML.dll` runtime under `onnxruntime/bin`; Release packaging removes `.pdb` debug symbols from the main consumer archive, while Debug packaging may retain them for diagnostics.
 
 Android artifacts are native static archives for consuming projects. They do not package ONNX Runtime Java bindings, `onnxruntime4j`, or an AAR.
@@ -150,7 +152,7 @@ Run these lightweight checks before committing maintenance or build-orchestratio
 ```bash
 ./build.sh --dry-run
 bash -n build.sh scripts/ralph-loop.sh scripts/ralph-loop-codex.sh scripts/ralph-loop-gemini.sh scripts/ralph-loop-copilot.sh scripts/lib/spec_queue.sh scripts/lib/nr_of_tries.sh
-python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/validate_required_operators_config.py .github/scripts/resolve_build_targets.py .github/scripts/create_apple_universal_static_artifact.py .github/scripts/create_apple_xcframework_artifact.py .github/scripts/slim_windows_artifact.py
+python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/validate_required_operators_config.py .github/scripts/resolve_build_targets.py .github/scripts/create_apple_universal_static_artifact.py .github/scripts/create_apple_xcframework_artifact.py .github/scripts/slim_windows_artifact.py .github/scripts/validate_public_headers.py
 git diff --check
 ```
 
