@@ -293,10 +293,92 @@ if(onnxruntime_USE_OPENVINO)
     endif()
 endif()
 
-install(
-    DIRECTORY ${ONNXRUNTIME_SOURCE_DIR}/include/onnxruntime
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+set(ORT_PUBLIC_HEADERS)
+macro(ort_add_public_header relative_path)
+    set(ORT_PUBLIC_HEADER "${ONNXRUNTIME_SOURCE_DIR}/include/onnxruntime/${relative_path}")
+    if(NOT EXISTS "${ORT_PUBLIC_HEADER}")
+        message(FATAL_ERROR "Required ONNX Runtime public header is missing: ${relative_path}")
+    endif()
+    list(APPEND ORT_PUBLIC_HEADERS "${ORT_PUBLIC_HEADER}")
+endmacro()
+
+macro(ort_add_optional_public_header relative_path)
+    set(ORT_PUBLIC_HEADER "${ONNXRUNTIME_SOURCE_DIR}/include/onnxruntime/${relative_path}")
+    if(EXISTS "${ORT_PUBLIC_HEADER}")
+        list(APPEND ORT_PUBLIC_HEADERS "${ORT_PUBLIC_HEADER}")
+    endif()
+endmacro()
+
+ort_add_public_header(core/session/onnxruntime_c_api.h)
+ort_add_public_header(core/session/onnxruntime_cxx_api.h)
+ort_add_public_header(core/session/onnxruntime_cxx_inline.h)
+ort_add_public_header(core/session/onnxruntime_float16.h)
+ort_add_public_header(core/session/onnxruntime_lite_custom_op.h)
+ort_add_public_header(core/session/onnxruntime_run_options_config_keys.h)
+ort_add_public_header(core/session/onnxruntime_session_options_config_keys.h)
+ort_add_public_header(core/providers/cpu/cpu_provider_factory.h)
+
+if(onnxruntime_USE_COREML)
+    ort_add_public_header(core/providers/coreml/coreml_provider_factory.h)
+endif()
+if(onnxruntime_USE_NNAPI_BUILTIN)
+    ort_add_public_header(core/providers/nnapi/nnapi_provider_factory.h)
+endif()
+if(onnxruntime_USE_DML)
+    ort_add_public_header(core/providers/dml/dml_provider_factory.h)
+endif()
+if(onnxruntime_USE_OPENVINO)
+    ort_add_public_header(core/providers/openvino/openvino_provider_factory.h)
+endif()
+if(onnxruntime_USE_CUDA)
+    ort_add_optional_public_header(core/providers/cuda/cuda_provider_factory.h)
+endif()
+if(onnxruntime_USE_TENSORRT)
+    ort_add_optional_public_header(core/providers/tensorrt/tensorrt_provider_factory.h)
+endif()
+if(onnxruntime_USE_DNNL)
+    ort_add_optional_public_header(core/providers/dnnl/dnnl_provider_factory.h)
+    ort_add_optional_public_header(core/providers/dnnl/dnnl_provider_options.h)
+endif()
+if(onnxruntime_USE_ROCM)
+    ort_add_optional_public_header(core/providers/rocm/rocm_provider_factory.h)
+endif()
+
+list(REMOVE_DUPLICATES ORT_PUBLIC_HEADERS)
+set(ORT_PUBLIC_HEADER_NAMES)
+foreach(ORT_PUBLIC_HEADER IN LISTS ORT_PUBLIC_HEADERS)
+    get_filename_component(ORT_PUBLIC_HEADER_NAME "${ORT_PUBLIC_HEADER}" NAME)
+    list(APPEND ORT_PUBLIC_HEADER_NAMES "${ORT_PUBLIC_HEADER_NAME}")
+endforeach()
+list(JOIN ORT_PUBLIC_HEADER_NAMES ";" ORT_ALLOWED_PUBLIC_HEADER_NAMES)
+install(CODE
+    "file(REMOVE_RECURSE \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/onnxruntime\")"
 )
+install(
+    FILES ${ORT_PUBLIC_HEADERS}
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/onnxruntime
+)
+install(CODE
+    "set(ORT_ALLOWED_PUBLIC_HEADER_NAMES \"${ORT_ALLOWED_PUBLIC_HEADER_NAMES}\")
+    file(GLOB ORT_INSTALLED_PUBLIC_HEADERS
+        \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/onnxruntime/*.h\"
+        \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/onnxruntime/*.hpp\")
+    foreach(ORT_INSTALLED_PUBLIC_HEADER IN LISTS ORT_INSTALLED_PUBLIC_HEADERS)
+        get_filename_component(ORT_INSTALLED_PUBLIC_HEADER_NAME \"\${ORT_INSTALLED_PUBLIC_HEADER}\" NAME)
+        list(FIND ORT_ALLOWED_PUBLIC_HEADER_NAMES \"\${ORT_INSTALLED_PUBLIC_HEADER_NAME}\" ORT_INSTALLED_PUBLIC_HEADER_INDEX)
+        if(ORT_INSTALLED_PUBLIC_HEADER_INDEX EQUAL -1)
+            file(REMOVE \"\${ORT_INSTALLED_PUBLIC_HEADER}\")
+        endif()
+    endforeach()
+    file(REMOVE_RECURSE
+        \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/onnxruntime/core\"
+        \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/onnxruntime/session\")"
+)
+unset(ORT_PUBLIC_HEADER)
+unset(ORT_PUBLIC_HEADER_NAME)
+unset(ORT_PUBLIC_HEADER_NAMES)
+unset(ORT_ALLOWED_PUBLIC_HEADER_NAMES)
+unset(ORT_PUBLIC_HEADERS)
 
 if((CMAKE_BUILD_TYPE MATCHES "Debug") OR ("Debug" IN_LIST CMAKE_CONFIGURATION_TYPES))
     set(ORT_INSTALLED_LIBRARY_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}onnxruntime${CMAKE_DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX})

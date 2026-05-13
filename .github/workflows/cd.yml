@@ -194,7 +194,7 @@ jobs:
       xcframework-matrix: ${{ steps.targets.outputs.xcframework_matrix }}
       xcframework-targets: ${{ steps.targets.outputs.xcframework_targets }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Resolve exact target matrix
         id: targets
@@ -219,7 +219,7 @@ jobs:
       matrix: ${{ fromJson(needs.validate-targets.outputs.matrix) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Validate reduced operator input combination
         if: >
@@ -485,6 +485,22 @@ jobs:
 
           "$PYTHON" .github/scripts/slim_windows_artifact.py "${SLIM_ARGS[@]}"
 
+      - name: Validate public header layout
+        shell: bash
+        env:
+          BUILD_TARGET: ${{ matrix.target }}
+          BUILD_ARGS: ${{ matrix.args }}
+        run: |
+          PYTHON=python3
+          if ! command -v "$PYTHON" >/dev/null 2>&1; then
+            PYTHON=python
+          fi
+
+          "$PYTHON" .github/scripts/validate_public_headers.py \
+            --artifact-root build/artifact \
+            --target "$BUILD_TARGET" \
+            --build-args "$BUILD_ARGS"
+
       - name: Artifact name
         id: artifact-name
         shell: bash
@@ -528,7 +544,7 @@ jobs:
       matrix: ${{ fromJson(needs.validate-targets.outputs['universal-matrix']) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Validate reduced operator input combination
         if: >
@@ -640,7 +656,7 @@ jobs:
       matrix: ${{ fromJson(needs.validate-targets.outputs['xcframework-matrix']) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Validate reduced operator input combination
         if: >
