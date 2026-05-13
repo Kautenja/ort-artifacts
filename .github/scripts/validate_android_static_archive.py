@@ -39,7 +39,7 @@ def abi_for_target(target: str) -> str:
 
 
 def package_root(artifact_root: Path) -> Path:
-    root = artifact_root / "onnxruntime"
+    root = artifact_root.resolve() / "onnxruntime"
     if not root.is_dir():
         raise AndroidArchiveError(f"ONNX Runtime package root is missing: {root}")
     return root

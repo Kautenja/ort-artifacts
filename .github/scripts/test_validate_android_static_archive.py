@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +12,7 @@ from unittest.mock import patch
 from validate_android_static_archive import (
     AndroidArchiveError,
     abi_for_target,
+    cmake_package_dir,
     inspect_tls_compatibility,
     smoke_configure_command,
     static_archive_path,
@@ -70,6 +72,31 @@ Relocation section '.rela.text' at offset 0x0 contains 1 entry:
     def test_unsupported_abi_target_fails(self) -> None:
         with self.assertRaisesRegex(AndroidArchiveError, "Unsupported Android static target"):
             abi_for_target("android-mips-static")
+
+    def test_cmake_package_dir_resolves_relative_artifact_root(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ort-relative-artifact-") as temp:
+            temp_dir = Path(temp)
+            config_dir = (
+                temp_dir
+                / "build"
+                / "artifact"
+                / "onnxruntime"
+                / "lib"
+                / "cmake"
+                / "onnxruntime"
+            )
+            config_dir.mkdir(parents=True)
+            (config_dir / "onnxruntimeConfig.cmake").write_text("", encoding="utf-8")
+
+            previous_cwd = os.getcwd()
+            try:
+                os.chdir(temp_dir)
+                resolved_dir = cmake_package_dir(Path("build/artifact"))
+            finally:
+                os.chdir(previous_cwd)
+
+        self.assertEqual(resolved_dir, config_dir.resolve())
+        self.assertTrue(resolved_dir.is_absolute())
 
     def test_smoke_configure_command_uses_api24_and_target_abi(self) -> None:
         command = smoke_configure_command(
