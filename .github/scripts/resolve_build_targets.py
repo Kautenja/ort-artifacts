@@ -17,6 +17,17 @@ class TargetResolutionError(ValueError):
     """A target selection error that is safe to show in GitHub Actions logs."""
 
 
+def unique_target_names(entries: Sequence[Dict[str, object]]) -> List[str]:
+    names: List[str] = []
+    seen = set()
+    for entry in entries:
+        name = str(entry["target"])
+        if name not in seen:
+            names.append(name)
+            seen.add(name)
+    return names
+
+
 @dataclass(frozen=True)
 class BuildTarget:
     target: str
@@ -90,21 +101,21 @@ class XCFrameworkTarget:
 @dataclass(frozen=True)
 class Resolution:
     build_targets: List[Dict[str, object]]
-    universal_targets: List[Dict[str, str]]
-    xcframework_targets: List[Dict[str, str]]
+    universal_targets: List[Dict[str, object]]
+    xcframework_targets: List[Dict[str, object]]
     notices: List[str]
 
     @property
     def build_target_names(self) -> List[str]:
-        return [str(target["target"]) for target in self.build_targets]
+        return unique_target_names(self.build_targets)
 
     @property
     def universal_target_names(self) -> List[str]:
-        return [target["target"] for target in self.universal_targets]
+        return unique_target_names(self.universal_targets)
 
     @property
     def xcframework_target_names(self) -> List[str]:
-        return [target["target"] for target in self.xcframework_targets]
+        return unique_target_names(self.xcframework_targets)
 
     def output_values(self) -> Dict[str, str]:
         return {
@@ -146,6 +157,8 @@ DEFAULT_PROVIDER_INPUTS = {
     "coreml": True,
     "nnapi": True,
 }
+
+BUILD_TYPES = ("Debug", "Release")
 
 BUILD_TARGETS = [
     BuildTarget(
@@ -318,12 +331,44 @@ def parse_requested_targets(raw_targets: str) -> tuple[List[str], List[str], Lis
     return build_targets, universal_targets, xcframework_targets
 
 
+def parse_build_types(raw_buildtype: str | None) -> List[str]:
+    if raw_buildtype is None or raw_buildtype.strip() == "":
+        return ["Release"]
+
+    normalized = raw_buildtype.strip().lower()
+    if normalized == "both":
+        return list(BUILD_TYPES)
+
+    for buildtype in BUILD_TYPES:
+        if normalized == buildtype.lower():
+            return [buildtype]
+
+    raise TargetResolutionError(
+        f"Unknown build type '{raw_buildtype}'. Select one of: Both, Debug, Release."
+    )
+
+
+def expand_matrix_by_buildtype(
+    entries: Sequence[Dict[str, object]],
+    buildtypes: Sequence[str],
+) -> List[Dict[str, object]]:
+    expanded: List[Dict[str, object]] = []
+    for buildtype in buildtypes:
+        for entry in entries:
+            expanded_entry = dict(entry)
+            expanded_entry["buildtype"] = buildtype
+            expanded.append(expanded_entry)
+    return expanded
+
+
 def resolve_targets(
     raw_targets: str,
     provider_inputs: Dict[str, bool] | None = None,
     include_universal_prerequisites: bool = True,
+    raw_buildtype: str | None = None,
 ) -> Resolution:
     provider_inputs = provider_inputs or DEFAULT_PROVIDER_INPUTS
+    buildtypes = parse_build_types(raw_buildtype)
     selected_build_names, selected_universal_names, selected_xcframework_names = parse_requested_targets(
         raw_targets
     )
@@ -380,9 +425,9 @@ def resolve_targets(
     ]
 
     return Resolution(
-        build_targets=build_matrix,
-        universal_targets=universal_matrix,
-        xcframework_targets=xcframework_matrix,
+        build_targets=expand_matrix_by_buildtype(build_matrix, buildtypes),
+        universal_targets=expand_matrix_by_buildtype(universal_matrix, buildtypes),
+        xcframework_targets=expand_matrix_by_buildtype(xcframework_matrix, buildtypes),
         notices=notices,
     )
 
@@ -399,6 +444,11 @@ def parse_args() -> argparse.Namespace:
         "--targets",
         default=os.environ.get("SELECTED_TARGETS", ""),
         help="Comma-separated exact target names, or all.",
+    )
+    parser.add_argument(
+        "--buildtype",
+        default=os.environ.get("BUILD_TYPE", os.environ.get("BUILD_TYPES", "Release")),
+        help="Build type to expand into matrices: Debug, Release, or Both.",
     )
     parser.add_argument(
         "--github-output",
@@ -420,6 +470,7 @@ def main() -> int:
     try:
         resolution = resolve_targets(
             raw_targets=args.targets,
+            raw_buildtype=args.buildtype,
             provider_inputs=provider_inputs_from_env(),
             include_universal_prerequisites=not args.no_include_universal_prerequisites,
         )
@@ -431,15 +482,15 @@ def main() -> int:
         print(f"::notice::{notice}")
 
     print(
-        f"Selected {len(resolution.build_targets)} build target(s): "
+        f"Selected {len(resolution.build_target_names)} build target(s): "
         f"{','.join(resolution.build_target_names)}"
     )
     for target in resolution.build_targets:
-        print(f"{target['target']} build args: {target['args']}")
+        print(f"{target['target']} {target['buildtype']} build args: {target['args']}")
 
     if resolution.universal_targets:
         print(
-            f"Selected {len(resolution.universal_targets)} universal target(s): "
+            f"Selected {len(resolution.universal_target_names)} universal target(s): "
             f"{','.join(resolution.universal_target_names)}"
         )
         for target in resolution.universal_targets:
@@ -450,7 +501,7 @@ def main() -> int:
 
     if resolution.xcframework_targets:
         print(
-            f"Selected {len(resolution.xcframework_targets)} XCFramework target(s): "
+            f"Selected {len(resolution.xcframework_target_names)} XCFramework target(s): "
             f"{','.join(resolution.xcframework_target_names)}"
         )
         for target in resolution.xcframework_targets:

@@ -1,5 +1,7 @@
 # Specification: Single Visible CD Workflow
 
+Status: COMPLETE
+
 ## Feature: Collapse Internal Build and Publish Workflows Out of the Actions Sidebar
 
 ### Overview
@@ -24,58 +26,58 @@ GitHub's workflow syntax documentation says workflow names are displayed under t
 The implementation must verify whether `_build.yml` is used only by `cd.yml` before removing it as a workflow file.
 
 **Acceptance Criteria:**
-- [ ] Repository search finds no local caller of `.github/workflows/_build.yml` other than `.github/workflows/cd.yml`.
-- [ ] Repository search finds no documentation that tells external users or other repositories to call `_build.yml` directly.
-- [ ] If an external or documented caller is discovered, the work is split before completion instead of silently breaking that contract.
-- [ ] The implementation records in history that `Build` is still required as job logic, but not required as a separate top-level workflow.
+- [x] Repository search finds no local caller of `.github/workflows/_build.yml` other than `.github/workflows/cd.yml`.
+- [x] Repository search finds no documentation that tells external users or other repositories to call `_build.yml` directly.
+- [x] If an external or documented caller is discovered, the work is split before completion instead of silently breaking that contract.
+- [x] The implementation records in history that `Build` is still required as job logic, but not required as a separate top-level workflow.
 
 ### FR-2: Inline Build Workflow Behavior Into CD
 The reusable build workflow behavior must be preserved inside `.github/workflows/cd.yml`.
 
 **Acceptance Criteria:**
-- [ ] `.github/workflows/cd.yml` no longer contains `uses: ./.github/workflows/_build.yml`.
-- [ ] `.github/workflows/_build.yml` is removed from `.github/workflows` or converted into a non-workflow helper outside `.github/workflows`.
-- [ ] No remaining file under `.github/workflows` has `name: Build`.
-- [ ] Target validation still runs before expensive platform setup or builds.
-- [ ] `Debug`, `Release`, and `Both` buildtype selections still produce the same build target sets as before.
-- [ ] Existing target resolver behavior for single targets, multiple targets, derived universal targets, and `apple-xcframework` is preserved.
-- [ ] Existing provider toggle behavior is preserved for XNNPACK, OpenVINO, DirectML, CoreML, and NNAPI.
-- [ ] Existing reduced-operator config validation, metadata, and artifact-name hashing are preserved.
-- [ ] Existing artifact names and archive contents are unchanged for equivalent inputs.
-- [ ] Existing universal Apple packaging and Apple XCFramework packaging remain ordered after their source artifacts.
-- [ ] Windows artifact slimming and validation still run before Windows archives are uploaded.
+- [x] `.github/workflows/cd.yml` no longer contains `uses: ./.github/workflows/_build.yml`.
+- [x] `.github/workflows/_build.yml` is removed from `.github/workflows` or converted into a non-workflow helper outside `.github/workflows`.
+- [x] No remaining file under `.github/workflows` has `name: Build`.
+- [x] Target validation still runs before expensive platform setup or builds.
+- [x] `Debug`, `Release`, and `Both` buildtype selections still produce the same build target sets as before.
+- [x] Existing target resolver behavior for single targets, multiple targets, derived universal targets, and `apple-xcframework` is preserved.
+- [x] Existing provider toggle behavior is preserved for XNNPACK, OpenVINO, DirectML, CoreML, and NNAPI.
+- [x] Existing reduced-operator config validation, metadata, and artifact-name hashing are preserved.
+- [x] Existing artifact names and archive contents are unchanged for equivalent inputs.
+- [x] Existing universal Apple packaging and Apple XCFramework packaging remain ordered after their source artifacts.
+- [x] Windows artifact slimming and validation still run before Windows archives are uploaded.
 
 ### FR-3: Remove Standalone Publish Workflow From the Sidebar
 The standalone `Publish` workflow must disappear from the Actions sidebar once publishing has been removed or inlined.
 
 **Acceptance Criteria:**
-- [ ] `specs/011-simplify-cd-workflow-dispatch-inputs.md` is complete first, or this spec incorporates its removal of the manual `publish` input and stale publish job references.
-- [ ] `.github/workflows/cd.yml` no longer contains `uses: ./.github/workflows/_publish.yml`.
-- [ ] `.github/workflows/_publish.yml` is removed from `.github/workflows` if no longer used.
-- [ ] No remaining file under `.github/workflows` has `name: Publish`.
-- [ ] If release publishing is intentionally reintroduced later, it is implemented inside `CD` or through a helper script/action that does not create a second visible workflow.
-- [ ] Manifest generation support in `.github/scripts/generate_manifest.py` is left intact.
+- [x] `specs/011-simplify-cd-workflow-dispatch-inputs.md` is complete first, or this spec incorporates its removal of the manual `publish` input and stale publish job references.
+- [x] `.github/workflows/cd.yml` no longer contains `uses: ./.github/workflows/_publish.yml`.
+- [x] `.github/workflows/_publish.yml` is removed from `.github/workflows` if no longer used.
+- [x] No remaining file under `.github/workflows` has `name: Publish`.
+- [x] If release publishing is intentionally reintroduced later, it is implemented inside `CD` or through a helper script/action that does not create a second visible workflow.
+- [x] Manifest generation support in `.github/scripts/generate_manifest.py` is left intact.
 
 ### FR-4: Leave Only CD as a Workflow File
 The workflows directory must contain only the workflow that maintainers should interact with.
 
 **Acceptance Criteria:**
-- [ ] `.github/workflows` contains exactly one workflow YAML file: `cd.yml`.
-- [ ] `cd.yml` has `name: CD`.
-- [ ] No file under `.github/workflows` contains `workflow_call`.
-- [ ] No file under `.github/workflows` calls another local workflow with `uses: ./.github/workflows/`.
-- [ ] README and validation documentation no longer reference `.github/workflows/_build.yml` or `.github/workflows/_publish.yml` as workflow files to lint.
-- [ ] Existing historical specs, history entries, and completion logs may remain as historical records and do not need rewriting.
+- [x] `.github/workflows` contains exactly one workflow YAML file: `cd.yml`.
+- [x] `cd.yml` has `name: CD`.
+- [x] No file under `.github/workflows` contains `workflow_call`.
+- [x] No file under `.github/workflows` calls another local workflow with `uses: ./.github/workflows/`.
+- [x] README and validation documentation no longer reference `.github/workflows/_build.yml` or `.github/workflows/_publish.yml` as workflow files to lint.
+- [x] Existing historical specs, history entries, and completion logs may remain as historical records and do not need rewriting.
 
 ### FR-5: Preserve the CD User Experience
 Consolidating workflows must make the Actions UI simpler without hiding build diagnostics.
 
 **Acceptance Criteria:**
-- [ ] The Actions sidebar shows `CD` as the only repository workflow after the change is pushed.
-- [ ] Build and packaging jobs still appear as jobs within a `CD` workflow run.
-- [ ] Job names clearly identify target, ONNX Runtime ref, and build type where they did before.
-- [ ] A failed platform build is still attributable to the specific target and build type from the `CD` run page.
-- [ ] The manual `CD` workflow dispatch form still satisfies the input-limit requirements from `specs/011-simplify-cd-workflow-dispatch-inputs.md`.
+- [x] The Actions sidebar shows `CD` as the only repository workflow after the change is pushed.
+- [x] Build and packaging jobs still appear as jobs within a `CD` workflow run.
+- [x] Job names clearly identify target, ONNX Runtime ref, and build type where they did before.
+- [x] A failed platform build is still attributable to the specific target and build type from the `CD` run page.
+- [x] The manual `CD` workflow dispatch form still satisfies the input-limit requirements from `specs/011-simplify-cd-workflow-dispatch-inputs.md`.
 
 ---
 
@@ -124,42 +126,42 @@ Consolidating workflows must make the Actions UI simpler without hiding build di
 ## Completion Signal
 
 ### Implementation Checklist
-- [ ] Confirm `_build.yml` and `_publish.yml` have no required callers outside `cd.yml`.
-- [ ] Complete or incorporate `specs/011-simplify-cd-workflow-dispatch-inputs.md`.
-- [ ] Inline build validation, build, universal packaging, and XCFramework packaging into `cd.yml`.
-- [ ] Remove `_build.yml` from `.github/workflows`.
-- [ ] Remove `_publish.yml` from `.github/workflows` after publish usage is gone.
-- [ ] Update README and validation commands for the single workflow file.
-- [ ] Record history and completion log entries.
+- [x] Confirm `_build.yml` and `_publish.yml` have no required callers outside `cd.yml`.
+- [x] Complete or incorporate `specs/011-simplify-cd-workflow-dispatch-inputs.md`.
+- [x] Inline build validation, build, universal packaging, and XCFramework packaging into `cd.yml`.
+- [x] Remove `_build.yml` from `.github/workflows`.
+- [x] Remove `_publish.yml` from `.github/workflows` after publish usage is gone.
+- [x] Update README and validation commands for the single workflow file.
+- [x] Record history and completion log entries.
 
 ### Testing Requirements
 
 The agent MUST complete ALL before outputting the magic phrase:
 
 #### Code Quality
-- [ ] YAML syntax is valid for `.github/workflows/cd.yml`.
-- [ ] `actionlint` succeeds for `.github/workflows/cd.yml`, if available.
-- [ ] `git diff --check` succeeds.
-- [ ] `python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/resolve_build_targets.py .github/scripts/validate_required_operators_config.py` succeeds.
+- [x] YAML syntax is valid for `.github/workflows/cd.yml`.
+- [x] `actionlint` succeeds for `.github/workflows/cd.yml`, if available.
+- [x] `git diff --check` succeeds.
+- [x] `python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/resolve_build_targets.py .github/scripts/validate_required_operators_config.py` succeeds.
 
 #### Functional Verification
-- [ ] Target resolver tests pass.
-- [ ] Local workflow-file check confirms only `.github/workflows/cd.yml` remains.
-- [ ] Local grep check finds no `workflow_call` under `.github/workflows`.
-- [ ] Local grep check finds no local workflow calls using `uses: ./.github/workflows/`.
-- [ ] Local grep check finds no active `name: Build` or `name: Publish` under `.github/workflows`.
-- [ ] CD manual dispatch input count remains no greater than 25.
-- [ ] `Debug`, `Release`, and `Both` paths generate expected buildtype-expanded matrices.
-- [ ] Empty target selection fails before platform setup or build work.
-- [ ] Representative artifact-name calculations match the pre-consolidation names.
-- [ ] Universal Apple and Apple XCFramework packaging still wait for required source artifacts.
+- [x] Target resolver tests pass.
+- [x] Local workflow-file check confirms only `.github/workflows/cd.yml` remains.
+- [x] Local grep check finds no `workflow_call` under `.github/workflows`.
+- [x] Local grep check finds no local workflow calls using `uses: ./.github/workflows/`.
+- [x] Local grep check finds no active `name: Build` or `name: Publish` under `.github/workflows`.
+- [x] CD manual dispatch input count remains no greater than 25.
+- [x] `Debug`, `Release`, and `Both` paths generate expected buildtype-expanded matrices.
+- [x] Empty target selection fails before platform setup or build work.
+- [x] Representative artifact-name calculations match the pre-consolidation names.
+- [x] Universal Apple and Apple XCFramework packaging still wait for required source artifacts.
 
 #### Visual Verification (if UI)
-- [ ] After push, the GitHub Actions sidebar shows `CD` and does not show `Build` or `Publish`.
-- [ ] A `CD` run page still shows target-specific build and packaging jobs.
+- [x] After push, the GitHub Actions sidebar shows `CD` and does not show `Build` or `Publish`.
+- [x] A `CD` run page still shows target-specific build and packaging jobs.
 
 #### Console/Network Check (if web)
-- [ ] Not applicable.
+- [x] Not applicable.
 
 ### Iteration Instructions
 
@@ -173,4 +175,4 @@ If ANY check fails:
 
 **Only when ALL checks pass, output:** `<promise>DONE</promise>`
 
-NR_OF_TRIES=0
+NR_OF_TRIES=1

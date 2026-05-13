@@ -80,6 +80,47 @@ class ResolveBuildTargetsTest(unittest.TestCase):
         self.assertEqual(resolution.universal_target_names, [])
         self.assertEqual(resolution.xcframework_target_names, [])
 
+    def test_release_buildtype_is_default_matrix_buildtype(self) -> None:
+        resolution = resolve_targets("linux-x86_64-static")
+
+        self.assertEqual(
+            [target["buildtype"] for target in resolution.build_targets],
+            ["Release"],
+        )
+
+    def test_both_buildtype_expands_each_matrix(self) -> None:
+        resolution = resolve_targets(
+            "apple-xcframework",
+            raw_buildtype="Both",
+        )
+
+        self.assertEqual(
+            [target["buildtype"] for target in resolution.build_targets],
+            ["Debug"] * 5 + ["Release"] * 5,
+        )
+        self.assertEqual(
+            [target["buildtype"] for target in resolution.universal_targets],
+            ["Debug", "Debug", "Release", "Release"],
+        )
+        self.assertEqual(
+            [target["buildtype"] for target in resolution.xcframework_targets],
+            ["Debug", "Release"],
+        )
+        self.assertEqual(
+            resolution.build_target_names,
+            [
+                "ios-aarch64-static",
+                "ios-simulator-aarch64-static",
+                "ios-simulator-x86_64-static",
+                "macos-aarch64-static",
+                "macos-x86_64-static",
+            ],
+        )
+
+    def test_unknown_buildtype_fails(self) -> None:
+        with self.assertRaisesRegex(TargetResolutionError, "Unknown build type"):
+            resolve_targets("linux-x86_64-static", raw_buildtype="Profile")
+
     def test_unknown_target_fails(self) -> None:
         with self.assertRaisesRegex(TargetResolutionError, "Unknown build target"):
             resolve_targets("macos-arm64-static")

@@ -9,3 +9,4 @@
 2026-05-12: Completed Apple XCFramework artifact packaging, including target selection, source artifact dependency expansion, xcodebuild packaging, macOS/iOS simulator smoke tests, manifest metadata, and Xcode linker notes.
 2026-05-12: Completed Windows artifact slimming guardrails, documenting the measured Release archive inventory, installing required headers/CMake metadata, preserving DirectML runtime DLLs, and excluding Release PDBs from the main archive.
 2026-05-12: Completed CD workflow dispatch input simplification, removing manual publish and all-target checkboxes, defaulting target checkboxes on, and verifying the form now uses 24 inputs.
+2026-05-12: Completed single visible CD workflow consolidation, inlining build and Apple packaging jobs into CD, removing internal Build/Publish workflow files, and preserving buildtype-expanded target resolution.

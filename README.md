@@ -158,7 +158,7 @@ When workflow files change, also parse the YAML and run `actionlint`:
 
 ```bash
 ruby -e 'require "yaml"; ARGV.each { |file| YAML.load_file(file) }' .github/workflows/*.yml
-go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/cd.yml .github/workflows/_build.yml .github/workflows/_publish.yml
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/cd.yml
 ```
 
 For CMake flag, provider, patch, packaging, or release changes, run the smallest representative configure or build that proves the behavior. If a platform runner is unavailable locally, document that limitation in the completion log and rely on the matching GitHub Actions run after push.
