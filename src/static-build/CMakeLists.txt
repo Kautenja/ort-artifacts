@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.26)
 project(onnxruntime_static_lib)
 
+include(CMakePackageConfigHelpers)
+include(GNUInstallDirs)
+
 set(onnxruntime_BUILD_SHARED_LIB ON)
 set(BUILD_SHARED_LIBS OFF)
 
@@ -186,8 +189,11 @@ if(onnxruntime_USE_DML)
     install(
         FILES
             "$<TARGET_FILE_DIR:onnxruntime_providers_dml>/DirectML$<$<CONFIG:Debug>:.Debug>.dll"
-            "$<TARGET_FILE_DIR:onnxruntime_providers_dml>/DirectML$<$<CONFIG:Debug>:.Debug>.pdb"
         TYPE BIN)
+    install(
+        FILES "$<TARGET_FILE_DIR:onnxruntime_providers_dml>/DirectML.Debug.pdb"
+        TYPE BIN
+        CONFIGURATIONS Debug)
 endif()
 if(onnxruntime_USE_OPENVINO)
     add_dependencies(onnxruntime onnxruntime_providers_openvino)
@@ -286,6 +292,35 @@ if(onnxruntime_USE_OPENVINO)
         message(FATAL_ERROR "OpenVINO Debug: NO OPENVINO OR TBB FILES FOUND! OPENVINO_RUNTIME_FILES='${OPENVINO_RUNTIME_FILES}' OPENVINO_TBB_FILES='${OPENVINO_TBB_FILES}'")
     endif()
 endif()
+
+install(
+    DIRECTORY ${ONNXRUNTIME_SOURCE_DIR}/include/onnxruntime
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+if((CMAKE_BUILD_TYPE MATCHES "Debug") OR ("Debug" IN_LIST CMAKE_CONFIGURATION_TYPES))
+    set(ORT_INSTALLED_LIBRARY_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}onnxruntime${CMAKE_DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX})
+else()
+    set(ORT_INSTALLED_LIBRARY_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}onnxruntime${CMAKE_STATIC_LIBRARY_SUFFIX})
+endif()
+
+set(ORT_CMAKE_PACKAGE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/onnxruntime)
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/onnxruntimeConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/onnxruntimeConfig.cmake
+    INSTALL_DESTINATION ${ORT_CMAKE_PACKAGE_DIR}
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/onnxruntimeTargets.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/onnxruntimeTargets.cmake
+    @ONLY
+)
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/onnxruntimeConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/onnxruntimeTargets.cmake
+    DESTINATION ${ORT_CMAKE_PACKAGE_DIR}
+)
 
 install(
     FILES ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${PROJECT_NAME}$<$<CONFIG:Debug>:${CMAKE_DEBUG_POSTFIX}>${CMAKE_STATIC_LIBRARY_SUFFIX}

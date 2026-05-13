@@ -9,21 +9,33 @@ Open **Actions > CD > Run workflow** to build artifacts on GitHub-hosted runners
 Important inputs:
 
 - `onnxruntime-ref`: ONNX Runtime branch or tag. The current default is `v1.22.2`.
-- `target-all`: builds every active target when checked. It defaults to `true` and preserves the normal full-matrix behavior.
-- Target checkboxes: uncheck `target-all`, then check one or more exact target names such as `linux-x86_64-static` or `ios-simulator-aarch64-static`. If `target-all` is false and no target checkbox is selected, the workflow fails before runner setup.
+- Target checkboxes: every target defaults to selected, preserving the normal full-matrix behavior. Uncheck one or more exact target names such as `linux-x86_64-static`, `ios-simulator-aarch64-static`, `ios-simulator-universal-static`, or `apple-xcframework` to run a smaller build. If no target checkbox is selected, the workflow fails before runner setup.
+- Universal Apple checkboxes: `macos-universal-static` and `ios-simulator-universal-static` are derived with `lipo` after their matching aarch64 and x86_64 source slices finish. Selecting one schedules the required source slice builds; selecting only a source slice does not package a universal artifact.
+- Apple XCFramework checkbox: `apple-xcframework` is derived from `ios-aarch64-static`, `ios-simulator-universal-static`, and `macos-universal-static`. Selecting it schedules the required source static and universal artifacts, validates headers and SDKs, runs macOS and iOS simulator consumer compile/link smoke tests, then uploads `ort-<onnxruntime-ref>-apple-xcframework-<buildtype>`.
 - `buildtype`: `Release`, `Debug`, or `Both`.
 - Provider checkboxes: `enable-xnnpack`, `enable-openvino`, `enable-directml`, `enable-coreml`, and `enable-nnapi` default to `true`. Each provider is added only to compatible selected targets; unsupported combinations are ignored with a workflow notice.
-- `publish`: when true, successful artifacts are gathered by the publish workflow and uploaded to a draft release with `manifest.json`.
 
 CLI example for one target:
 
 ```bash
 gh workflow run cd.yml \
   -f onnxruntime-ref=v1.22.2 \
-  -f target-all=false \
+  -f linux-aarch64-static=false \
   -f linux-x86_64-static=true \
-  -f buildtype=Release \
-  -f publish=false
+  -f macos-aarch64-static=false \
+  -f macos-x86_64-static=false \
+  -f macos-universal-static=false \
+  -f windows-md-x86_64-static=false \
+  -f ios-aarch64-static=false \
+  -f ios-simulator-aarch64-static=false \
+  -f ios-simulator-x86_64-static=false \
+  -f ios-simulator-universal-static=false \
+  -f apple-xcframework=false \
+  -f android-arm64-v8a-static=false \
+  -f android-armeabi-v7a-static=false \
+  -f android-x86_64-static=false \
+  -f android-x86-static=false \
+  -f buildtype=Release
 ```
 
 ## Build Targets
@@ -36,9 +48,12 @@ Default providers below assume the provider checkboxes are left enabled.
 | `linux-aarch64-static` | Linux | aarch64 | XNNPACK, OpenVINO | Ubuntu-hosted cross build with GCC 11 ARM toolchain. |
 | `macos-x86_64-static` | macOS | x86_64 | XNNPACK, CoreML | macOS 13.3 deployment target. |
 | `macos-aarch64-static` | macOS | arm64 | XNNPACK, CoreML | macOS 13.3 deployment target. |
+| `macos-universal-static` | macOS | arm64, x86_64 | XNNPACK, CoreML | Derived with `lipo` from the two macOS static slices. |
 | `ios-aarch64-static` | iOS device | arm64 | XNNPACK, CoreML | iOS 15.0 deployment target. |
 | `ios-simulator-aarch64-static` | iOS simulator | arm64 | XNNPACK, CoreML | Simulator build on macOS runner. |
 | `ios-simulator-x86_64-static` | iOS simulator | x86_64 | XNNPACK, CoreML | Simulator build on macOS runner. |
+| `ios-simulator-universal-static` | iOS simulator | arm64, x86_64 | XNNPACK, CoreML | Derived with `lipo` from the two simulator static slices. |
+| `apple-xcframework` | iOS, iOS simulator, macOS | arm64, x86_64 where applicable | XNNPACK, CoreML | Derived with `xcodebuild -create-xcframework` from iOS device, simulator universal, and macOS universal static artifacts. |
 | `windows-md-x86_64-static` | Windows | x64 | DirectML, XNNPACK | Static ORT libraries with the dynamic MSVC runtime (`/MD`). |
 | `android-arm64-v8a-static` | Android | arm64-v8a | XNNPACK, NNAPI | Native static archive for downstream CMake/JNI integration. |
 | `android-armeabi-v7a-static` | Android | armeabi-v7a | XNNPACK, NNAPI | Native static archive; no Java bindings or AAR are packaged. |
@@ -47,7 +62,13 @@ Default providers below assume the provider checkboxes are left enabled.
 
 Windows static artifacts currently enable only the dynamic CRT target. Static CRT and Windows ARM64 variants are deferred to separate specs so runner, toolchain, and downstream-linking behavior can be validated independently.
 
+Windows artifacts package `onnxruntime/lib/onnxruntime.lib`, public headers under `onnxruntime/include`, and a minimal CMake package under `onnxruntime/lib/cmake/onnxruntime`. DirectML-enabled builds keep the required `DirectML.dll` runtime under `onnxruntime/bin`; Release packaging removes `.pdb` debug symbols from the main consumer archive, while Debug packaging may retain them for diagnostics.
+
 Android artifacts are native static archives for consuming projects. They do not package ONNX Runtime Java bindings, `onnxruntime4j`, or an AAR.
+
+Universal Apple artifacts preserve the normal `onnxruntime` package layout and replace only the primary static archive under `onnxruntime/lib`. The packaging step compares header trees and reduced-operator metadata before choosing one source artifact as the layout template. Reduced-operator universal artifacts keep the same `ops-<12-hex-chars>` marker as their source slices.
+
+Apple XCFramework artifacts contain `onnxruntime.xcframework` and a packaged `README.md` at the archive root; consumers do not need to copy a separate `include` directory. The XCFramework packager compares public headers from the iOS device, iOS simulator universal, and macOS universal artifacts before choosing the packaged header tree. It verifies `lipo -info`, discovers Apple SDKs with `xcrun`, creates the bundle with `xcodebuild -create-xcframework`, and compiles/links minimal macOS and iOS simulator consumers before upload. For default CoreML-enabled Apple builds, Xcode consumers should link `Foundation.framework`, `CoreML.framework`, `Accelerate.framework`, and add `-lc++` to Other Linker Flags. The repository builds Apple artifacts with deployment targets iOS 15.0 and macOS 13.3.
 
 ## Ralph Wiggum Workflow
 
@@ -106,19 +127,16 @@ $Config = "required_operators.config"
 [Convert]::ToBase64String([IO.File]::ReadAllBytes($Config))
 ```
 
-In the GitHub Actions UI, choose **CD**, select **Run workflow**, paste the single-line output into `required-operators-config-base64`, and enable `enable-reduced-operator-type-support` only for a type-aware config. Leave `target-all` checked for the full matrix, or uncheck it and select exact target checkboxes for a smaller run.
+In the GitHub Actions UI, choose **CD**, select **Run workflow**, paste the single-line output into `required-operators-config-base64`, and enable `enable-reduced-operator-type-support` only for a type-aware config. Leave the target defaults selected for the full matrix, or uncheck exact target checkboxes for a smaller run.
 
-CLI example:
+CLI example for a full-matrix reduced-operator run:
 
 ```bash
 gh workflow run cd.yml \
   -f onnxruntime-ref=v1.22.2 \
-  -f target-all=false \
-  -f linux-x86_64-static=true \
   -f buildtype=Release \
   -f required-operators-config-base64="$(base64 < required_operators.config | tr -d '\n')" \
-  -f enable-reduced-operator-type-support=false \
-  -f publish=false
+  -f enable-reduced-operator-type-support=false
 ```
 
 GitHub `workflow_dispatch` inputs are limited to 65,535 characters. If the generated base64 payload is larger, split the build or check the config into a controlled branch and add a repository-based config path instead of pasting the payload.
@@ -132,7 +150,7 @@ Run these lightweight checks before committing maintenance or build-orchestratio
 ```bash
 ./build.sh --dry-run
 bash -n build.sh scripts/ralph-loop.sh scripts/ralph-loop-codex.sh scripts/ralph-loop-gemini.sh scripts/ralph-loop-copilot.sh scripts/lib/spec_queue.sh scripts/lib/nr_of_tries.sh
-python3 -m py_compile .github/scripts/generate_manifest.py
+python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/validate_required_operators_config.py .github/scripts/resolve_build_targets.py .github/scripts/create_apple_universal_static_artifact.py .github/scripts/create_apple_xcframework_artifact.py .github/scripts/slim_windows_artifact.py
 git diff --check
 ```
 
@@ -140,7 +158,7 @@ When workflow files change, also parse the YAML and run `actionlint`:
 
 ```bash
 ruby -e 'require "yaml"; ARGV.each { |file| YAML.load_file(file) }' .github/workflows/*.yml
-go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/cd.yml .github/workflows/_build.yml .github/workflows/_publish.yml
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/cd.yml
 ```
 
 For CMake flag, provider, patch, packaging, or release changes, run the smallest representative configure or build that proves the behavior. If a platform runner is unavailable locally, document that limitation in the completion log and rely on the matching GitHub Actions run after push.

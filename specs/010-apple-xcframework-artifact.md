@@ -1,5 +1,7 @@
 # Specification: Apple XCFramework Artifact
 
+**Status**: COMPLETE
+
 ## Feature: Xcode-Ready ONNX Runtime XCFramework
 
 ### Overview
@@ -35,44 +37,44 @@ This spec depends on `specs/009-apple-universal-static-artifacts.md`, which crea
 The workflow must create an Apple XCFramework from existing Apple static artifacts.
 
 **Acceptance Criteria:**
-- [ ] Create `onnxruntime.xcframework` with `xcodebuild -create-xcframework`.
-- [ ] Include the iOS device arm64 library from `ios-aarch64-static`.
-- [ ] Include the iOS simulator universal library from `ios-simulator-universal-static`.
-- [ ] Include the macOS universal library from `macos-universal-static` only after the macOS consumer smoke test passes.
-- [ ] Pass the correct public ONNX Runtime headers with every `-library` input.
-- [ ] The output artifact name follows the existing release naming pattern, for example `ort-<onnxruntime-ref>-apple-xcframework-<buildtype>`.
-- [ ] Reduced-operator builds preserve the existing `ops-<12-hex-chars>` artifact-name marker for the XCFramework output.
+- [x] Create `onnxruntime.xcframework` with `xcodebuild -create-xcframework`.
+- [x] Include the iOS device arm64 library from `ios-aarch64-static`.
+- [x] Include the iOS simulator universal library from `ios-simulator-universal-static`.
+- [x] Include the macOS universal library from `macos-universal-static` only after the macOS consumer smoke test passes.
+- [x] Pass the correct public ONNX Runtime headers with every `-library` input.
+- [x] The output artifact name follows the existing release naming pattern, for example `ort-<onnxruntime-ref>-apple-xcframework-<buildtype>`.
+- [x] Reduced-operator builds preserve the existing `ops-<12-hex-chars>` artifact-name marker for the XCFramework output.
 
 ### FR-2: Header and Package Layout
 The XCFramework must be directly consumable by Xcode.
 
 **Acceptance Criteria:**
-- [ ] The packaged artifact contains `onnxruntime.xcframework` at a predictable path.
-- [ ] Headers inside the XCFramework are the public ONNX Runtime headers required to include `onnxruntime_c_api.h` and `onnxruntime_cxx_api.h`.
-- [ ] Header sources from iOS device, iOS simulator universal, and macOS universal artifacts are compared or otherwise verified before choosing the packaged header tree.
-- [ ] If additional module maps, umbrella headers, README notes, or linker setting documentation are needed for Xcode consumption, they are included in the artifact or README.
-- [ ] The package does not require consumers to manually copy a separate `include` directory next to the XCFramework.
+- [x] The packaged artifact contains `onnxruntime.xcframework` at a predictable path.
+- [x] Headers inside the XCFramework are the public ONNX Runtime headers required to include `onnxruntime_c_api.h` and `onnxruntime_cxx_api.h`.
+- [x] Header sources from iOS device, iOS simulator universal, and macOS universal artifacts are compared or otherwise verified before choosing the packaged header tree.
+- [x] If additional module maps, umbrella headers, README notes, or linker setting documentation are needed for Xcode consumption, they are included in the artifact or README.
+- [x] The package does not require consumers to manually copy a separate `include` directory next to the XCFramework.
 
 ### FR-3: macOS Slice Investigation and Fix
 The known macOS slice issue must be investigated as part of the XCFramework work.
 
 **Acceptance Criteria:**
-- [ ] Reproduce or disprove the previous macOS failure with a minimal local or CI consumer test.
-- [ ] The investigation distinguishes between missing SDK/system include paths, missing Apple frameworks, bad packaged headers, incompatible deployment target, static-library content, and incorrect consumer build settings.
-- [ ] If the macOS artifact requires additional system frameworks or libraries, document the exact Xcode linker settings and include them in README or packaged notes.
-- [ ] If the macOS static slice itself is built incorrectly, fix the macOS build or split a narrower blocking spec before marking this spec complete.
-- [ ] The final XCFramework must not silently include a macOS slice that fails the macOS consumer smoke test.
+- [x] Reproduce or disprove the previous macOS failure with a minimal local or CI consumer test.
+- [x] The investigation distinguishes between missing SDK/system include paths, missing Apple frameworks, bad packaged headers, incompatible deployment target, static-library content, and incorrect consumer build settings.
+- [x] If the macOS artifact requires additional system frameworks or libraries, document the exact Xcode linker settings and include them in README or packaged notes.
+- [x] If the macOS static slice itself is built incorrectly, fix the macOS build or split a narrower blocking spec before marking this spec complete.
+- [x] The final XCFramework must not silently include a macOS slice that fails the macOS consumer smoke test.
 
 ### FR-4: Workflow and Release Integration
 XCFramework creation must fit the existing CD and publish model.
 
 **Acceptance Criteria:**
-- [ ] Add a manual workflow checkbox or equivalent documented trigger for the Apple XCFramework artifact.
-- [ ] Selecting the XCFramework target schedules or requires `ios-aarch64-static`, `ios-simulator-universal-static`, and `macos-universal-static`.
-- [ ] `target-all=true` includes the Apple XCFramework artifact after its source artifacts are produced.
-- [ ] The publish workflow uploads the XCFramework artifact when `publish=true`.
-- [ ] `.github/scripts/generate_manifest.py` records the XCFramework archive with a clear artifact type and SHA256.
-- [ ] Existing static artifact publishing remains unchanged.
+- [x] Add a manual workflow checkbox or equivalent documented trigger for the Apple XCFramework artifact.
+- [x] Selecting the XCFramework target schedules or requires `ios-aarch64-static`, `ios-simulator-universal-static`, and `macos-universal-static`.
+- [x] `target-all=true` includes the Apple XCFramework artifact after its source artifacts are produced.
+- [x] The publish workflow uploads the XCFramework artifact when `publish=true`.
+- [x] `.github/scripts/generate_manifest.py` records the XCFramework archive with a clear artifact type and SHA256.
+- [x] Existing static artifact publishing remains unchanged.
 
 ---
 
@@ -120,41 +122,41 @@ XCFramework creation must fit the existing CD and publish model.
 ## Completion Signal
 
 ### Implementation Checklist
-- [ ] Ensure spec 009 universal Apple artifacts are available.
-- [ ] Implement local and workflow XCFramework packaging.
-- [ ] Add manual target selection support for the XCFramework artifact.
-- [ ] Add macOS and iOS simulator consumer smoke tests.
-- [ ] Investigate and fix or explicitly split the macOS slice issue.
-- [ ] Update README and manifest support.
-- [ ] Record history and completion log entries.
+- [x] Ensure spec 009 universal Apple artifacts are available.
+- [x] Implement local and workflow XCFramework packaging.
+- [x] Add manual target selection support for the XCFramework artifact.
+- [x] Add macOS and iOS simulator consumer smoke tests.
+- [x] Investigate and fix or explicitly split the macOS slice issue.
+- [x] Update README and manifest support.
+- [x] Record history and completion log entries.
 
 ### Testing Requirements
 
 The agent MUST complete ALL before outputting the magic phrase:
 
 #### Code Quality
-- [ ] `./build.sh --dry-run` succeeds.
-- [ ] `bash -n build.sh scripts/ralph-loop.sh scripts/ralph-loop-codex.sh scripts/ralph-loop-gemini.sh scripts/ralph-loop-copilot.sh scripts/lib/spec_queue.sh scripts/lib/nr_of_tries.sh` succeeds.
-- [ ] `python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/validate_required_operators_config.py` succeeds.
-- [ ] Workflow YAML parsing succeeds for changed workflow files.
-- [ ] `actionlint` succeeds for changed workflow files.
-- [ ] `git diff --check` succeeds.
+- [x] `./build.sh --dry-run` succeeds.
+- [x] `bash -n build.sh scripts/ralph-loop.sh scripts/ralph-loop-codex.sh scripts/ralph-loop-gemini.sh scripts/ralph-loop-copilot.sh scripts/lib/spec_queue.sh scripts/lib/nr_of_tries.sh` succeeds.
+- [x] `python3 -m py_compile .github/scripts/generate_manifest.py .github/scripts/validate_required_operators_config.py` succeeds.
+- [x] Workflow YAML parsing succeeds for changed workflow files.
+- [x] `actionlint` succeeds for changed workflow files.
+- [x] `git diff --check` succeeds.
 
 #### Functional Verification
-- [ ] `xcodebuild -create-xcframework` succeeds with the expected iOS device, iOS simulator universal, and macOS universal inputs.
-- [ ] `xcodebuild -showdestinations` or equivalent SDK discovery confirms the runner has the required Apple SDKs.
-- [ ] The generated XCFramework contains iOS device, iOS simulator, and macOS library identifiers.
-- [ ] `lipo -info` verifies expected architectures inside the simulator and macOS libraries before packaging.
-- [ ] A minimal iOS simulator consumer compile/link smoke test succeeds.
-- [ ] A minimal macOS consumer compile/link smoke test succeeds, or the spec is split before completion because the macOS slice requires separate repair.
-- [ ] Manifest generation succeeds against a representative XCFramework artifact archive.
-- [ ] Existing raw static Apple artifacts still publish with unchanged names.
+- [x] `xcodebuild -create-xcframework` succeeds with the expected iOS device, iOS simulator universal, and macOS universal inputs.
+- [x] `xcodebuild -showdestinations` or equivalent SDK discovery confirms the runner has the required Apple SDKs.
+- [x] The generated XCFramework contains iOS device, iOS simulator, and macOS library identifiers.
+- [x] `lipo -info` verifies expected architectures inside the simulator and macOS libraries before packaging.
+- [x] A minimal iOS simulator consumer compile/link smoke test succeeds.
+- [x] A minimal macOS consumer compile/link smoke test succeeds, or the spec is split before completion because the macOS slice requires separate repair.
+- [x] Manifest generation succeeds against a representative XCFramework artifact archive.
+- [x] Existing raw static Apple artifacts still publish with unchanged names.
 
 #### Visual Verification (if UI)
-- [ ] Not applicable.
+- [x] Not applicable.
 
 #### Console/Network Check (if web)
-- [ ] Not applicable.
+- [x] Not applicable.
 
 ### Iteration Instructions
 
@@ -168,4 +170,4 @@ If ANY check fails:
 
 **Only when ALL checks pass, output:** `<promise>DONE</promise>`
 
-NR_OF_TRIES=0
+NR_OF_TRIES=1
