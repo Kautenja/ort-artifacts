@@ -17,7 +17,7 @@ set_property(CACHE TARGET_ARCH PROPERTY STRINGS x86_64 x86 aarch64 armv7)
 option(IPHONEOS "Target iOS/iPadOS" OFF)
 option(IPHONESIMULATOR "Target iOS/iPadOS simulator" OFF)
 option(ANDROID "Target Android" OFF)
-set(ANDROID_API "35" CACHE STRING "Android API level")
+set(ANDROID_API "24" CACHE STRING "Android API level")
 set(ANDROID_ABI "arm64-v8a" CACHE STRING "Android ABI")
 set_property(CACHE ANDROID_ABI PROPERTY STRINGS armeabi-v7a arm64-v8a x86_64 x86)
 option(WASM "Compile for WebAssembly" OFF)
@@ -111,21 +111,27 @@ if(USE_OPENVINO AND (PLATFORM_DARWIN OR ANDROID))
 endif()
 
 # Prepare patch command
+set(PATCH_DIRS)
 if(REFERENCE MATCHES "^v1\\.22(\\.|$)")
-    set(PATCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/patches/all-v1.22")
+    list(APPEND PATCH_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/src/patches/all-v1.22")
+    if(REFERENCE STREQUAL "v1.22.0")
+        list(APPEND PATCH_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/src/patches/all-v1.22.0")
+    endif()
 else()
-    set(PATCH_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/patches/all")
+    list(APPEND PATCH_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/src/patches/all")
 endif()
 
-message(STATUS "Using ONNX Runtime patch directory: ${PATCH_DIR}")
+message(STATUS "Using ONNX Runtime patch directories: ${PATCH_DIRS}")
 
-file(GLOB PATCH_FILES ${PATCH_DIR}/*.patch)
-list(SORT PATCH_FILES)
 set(PATCH_COMMAND "")
-foreach(PATCH_FILE ${PATCH_FILES})
-    list(APPEND PATCH_COMMAND
-        COMMAND git apply --check --ignore-whitespace --recount ${PATCH_FILE}
-        COMMAND git apply --ignore-whitespace --recount ${PATCH_FILE})
+foreach(PATCH_DIR IN LISTS PATCH_DIRS)
+    file(GLOB PATCH_FILES ${PATCH_DIR}/*.patch)
+    list(SORT PATCH_FILES)
+    foreach(PATCH_FILE ${PATCH_FILES})
+        list(APPEND PATCH_COMMAND
+            COMMAND git apply --check --ignore-whitespace --recount ${PATCH_FILE}
+            COMMAND git apply --ignore-whitespace --recount ${PATCH_FILE})
+    endforeach()
 endforeach()
 list(APPEND PATCH_COMMAND
     COMMAND ${CMAKE_COMMAND}
@@ -245,6 +251,20 @@ if(ANDROID)
         -DANDROID_USE_LEGACY_TOOLCHAIN_FILE=false
         -DCMAKE_TOOLCHAIN_FILE=$ENV{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake
     )
+
+    if(STATIC_BUILD)
+        list(APPEND CMAKE_ARGS
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+            -Donnxruntime_ENABLE_LTO=OFF
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
+        )
+        list(APPEND COMPILER_FLAGS fPIC)
+        list(APPEND ASSEMBLER_FLAGS fPIC)
+
+        if(ANDROID_API LESS 29)
+            list(APPEND COMPILER_FLAGS femulated-tls)
+        endif()
+    endif()
 endif()
 
 # Linux ARM64 cross-compilation
@@ -453,6 +473,11 @@ if(COMPILER_FLAGS)
     string(REPLACE ";" " -" COMPILER_FLAGS_STR "-${COMPILER_FLAGS}")
     list(APPEND CMAKE_ARGS -DCMAKE_C_FLAGS=${COMPILER_FLAGS_STR})
     list(APPEND CMAKE_ARGS -DCMAKE_CXX_FLAGS=${COMPILER_FLAGS_STR})
+endif()
+
+if(ASSEMBLER_FLAGS)
+    string(REPLACE ";" " -" ASSEMBLER_FLAGS_STR "-${ASSEMBLER_FLAGS}")
+    list(APPEND CMAKE_ARGS -DCMAKE_ASM_FLAGS=${ASSEMBLER_FLAGS_STR})
 endif()
 
 # WebAssembly special case handling

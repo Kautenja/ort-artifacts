@@ -501,6 +501,23 @@ jobs:
             --target "$BUILD_TARGET" \
             --build-args "$BUILD_ARGS"
 
+      - name: Validate Android static archive compatibility
+        if: contains(matrix.target, 'android') && contains(matrix.args, '--static')
+        shell: bash
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          BUILD_TARGET: ${{ matrix.target }}
+        run: |
+          PYTHON=python3
+          if ! command -v "$PYTHON" >/dev/null 2>&1; then
+            PYTHON=python
+          fi
+
+          "$PYTHON" .github/scripts/validate_android_static_archive.py \
+            --artifact-root build/artifact \
+            --target "$BUILD_TARGET" \
+            --android-api 24
+
       - name: Artifact name
         id: artifact-name
         shell: bash

@@ -73,6 +73,14 @@ class ResolveBuildTargetsTest(unittest.TestCase):
         self.assertEqual(resolution.universal_target_names, [])
         self.assertEqual(resolution.xcframework_target_names, [])
 
+    def test_android_static_targets_pin_api24(self) -> None:
+        resolution = resolve_targets(
+            "android-arm64-v8a-static,android-armeabi-v7a-static,android-x86_64-static,android-x86-static"
+        )
+
+        for target in resolution.build_targets:
+            self.assertIn("--android_api 24", target["args"])
+
     def test_single_architecture_selection_stays_single_architecture(self) -> None:
         resolution = resolve_targets("ios-simulator-aarch64-static")
 
