@@ -1,0 +1,39 @@
+diff --git a/cmake/onnxruntime_mlas.cmake b/cmake/onnxruntime_mlas.cmake
+index 1b11109ec..1d90e8784 100644
+--- a/cmake/onnxruntime_mlas.cmake
++++ b/cmake/onnxruntime_mlas.cmake
+@@ -554,10 +554,13 @@ else()
+         )
+         set_source_files_properties(${mlas_platform_srcs_sse2} PROPERTIES COMPILE_FLAGS "-msse2")
+ 
+-        set(mlas_platform_srcs_avx
+-          ${MLAS_SRC_DIR}/x86/SgemmKernelAvx.S
+-        )
+-        set_source_files_properties(${mlas_platform_srcs_avx} PROPERTIES COMPILE_FLAGS "-mavx")
++        set(mlas_platform_srcs_avx)
++        if(NOT ANDROID)
++          set(mlas_platform_srcs_avx
++            ${MLAS_SRC_DIR}/x86/SgemmKernelAvx.S
++          )
++          set_source_files_properties(${mlas_platform_srcs_avx} PROPERTIES COMPILE_FLAGS "-mavx")
++        endif()
+ 
+         set(mlas_platform_srcs
+           ${mlas_platform_srcs_sse2}
+diff --git a/onnxruntime/core/mlas/lib/platform.cpp b/onnxruntime/core/mlas/lib/platform.cpp
+index fb40e7b7d..0a6638473 100644
+--- a/onnxruntime/core/mlas/lib/platform.cpp
++++ b/onnxruntime/core/mlas/lib/platform.cpp
+@@ -340,7 +340,12 @@ MLAS_PLATFORM::MLAS_PLATFORM(
+ 
+         if ((xcr0 & 0x6) == 0x6) {
+ 
++#if defined(__ANDROID__) && defined(MLAS_TARGET_IX86)
++            // Android x86 static artifacts omit x86/SgemmKernelAvx.S because it is not PIC.
++            this->GemmFloatKernel = MlasGemmFloatKernelSse;
++#else
+             this->GemmFloatKernel = MlasGemmFloatKernelAvx;
++#endif
+ 
+ #if defined(MLAS_TARGET_AMD64)
+ 

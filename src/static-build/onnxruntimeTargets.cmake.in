@@ -24,6 +24,15 @@ set_target_properties(onnxruntime::onnxruntime
         INTERFACE_INCLUDE_DIRECTORIES "${_onnxruntime_include_dir}"
 )
 
+if(ANDROID)
+    set(_onnxruntime_android_libraries log android dl)
+    if(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a" OR ANDROID_ABI STREQUAL "armeabi-v7a")
+        list(APPEND _onnxruntime_android_libraries atomic)
+    endif()
+    set_property(TARGET onnxruntime::onnxruntime APPEND
+        PROPERTY INTERFACE_LINK_LIBRARIES ${_onnxruntime_android_libraries})
+endif()
+
 set(onnxruntime_RUNTIME_DLLS)
 foreach(_onnxruntime_runtime_dll IN ITEMS DirectML.dll DirectML.Debug.dll)
     if(EXISTS "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@/${_onnxruntime_runtime_dll}")
@@ -32,5 +41,6 @@ foreach(_onnxruntime_runtime_dll IN ITEMS DirectML.dll DirectML.Debug.dll)
 endforeach()
 
 unset(_onnxruntime_runtime_dll)
+unset(_onnxruntime_android_libraries)
 unset(_onnxruntime_include_dir)
 unset(_onnxruntime_library)
