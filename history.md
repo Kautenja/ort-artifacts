@@ -10,3 +10,4 @@
 2026-05-12: Completed Windows artifact slimming guardrails, documenting the measured Release archive inventory, installing required headers/CMake metadata, preserving DirectML runtime DLLs, and excluding Release PDBs from the main archive.
 2026-05-12: Completed CD workflow dispatch input simplification, removing manual publish and all-target checkboxes, defaulting target checkboxes on, and verifying the form now uses 24 inputs.
 2026-05-12: Completed single visible CD workflow consolidation, inlining build and Apple packaging jobs into CD, removing internal Build/Publish workflow files, and preserving buildtype-expanded target resolution.
+2026-05-13: Completed public header package layout repair, replacing raw ONNX Runtime header tree staging with curated root-level public headers and CI validation for iOS, Android, and other static artifacts.

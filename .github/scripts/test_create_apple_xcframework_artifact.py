@@ -169,7 +169,7 @@ def write_source_artifact(
     reduced_ops_value: str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 ) -> None:
     root = archive_path.parent / f"{archive_path.stem}-root"
-    include_dir = root / "onnxruntime" / "include"
+    include_dir = root / "onnxruntime" / "include" / "onnxruntime"
     lib_dir = root / "onnxruntime" / "lib"
     include_dir.mkdir(parents=True)
     lib_dir.mkdir(parents=True)
@@ -281,8 +281,11 @@ class CreateAppleXCFrameworkArtifactTest(unittest.TestCase):
         for entry in libraries:
             identifier = entry["LibraryIdentifier"]
             slice_root = extract_dir / "onnxruntime.xcframework" / identifier
+            headers = slice_root / entry.get("HeadersPath", "Headers")
             self.assertTrue((slice_root / entry["LibraryPath"]).is_file())
-            self.assertTrue((slice_root / entry.get("HeadersPath", "Headers")).is_dir())
+            self.assertTrue(headers.is_dir())
+            self.assertTrue((headers / "onnxruntime" / "onnxruntime_c_api.h").is_file())
+            self.assertTrue((headers / "onnxruntime" / "onnxruntime_cxx_api.h").is_file())
 
     def test_xcframework_archive_and_manifest(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ort-apple-xcframework-") as temp:
